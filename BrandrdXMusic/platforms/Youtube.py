@@ -10,7 +10,7 @@ import aiohttp
 
 API_URL = os.getenv("API_URL", "https://api01.shrutibots.site")
 
-API_KEY = os.getenv("API_KEY", "ShrutiBotsGbJvc8LZmryEw7LiVQSV") ## Get This API KEY FROM TELEGRAM BOT USERNAME: @SHRUTIAPIBOT 
+API_KEY = os.getenv("API_KEY", "ShrutiBotsGbJvc8LZmryEw7LiVQSV") ## Get This API KEY FROM TELEGRAM BOT USERNAME:
 
 DOWNLOAD_DIR = "downloads"
 
