@@ -5,8 +5,6 @@ from typing import Tuple
 from git import Repo
 from git.exc import GitCommandError, InvalidGitRepositoryError
 
-import config
-
 from ..logging import LOGGER
 
 
@@ -36,15 +34,10 @@ def install_req(cmd: str) -> Tuple[str, str, int, int]:
 
 def git():
     """
-    Git updater.
+    Heroku-safe Git handler.
 
-    On Heroku, the application is already deployed from the repository.
-    Runtime GitHub fetch/pull is disabled to prevent authentication errors
-    such as:
-
-        fatal: could not read Username for 'https://github.com'
-
-    Git updates can still be performed manually during deployment.
+    The repository is already deployed by Heroku,
+    so do not perform runtime fetch/pull operations.
     """
 
     try:
@@ -54,23 +47,22 @@ def git():
             "Git repository detected. Runtime Git update skipped."
         )
 
-        return
+        return True
 
     except InvalidGitRepositoryError:
         LOGGER(__name__).warning(
             "Git repository not found. Runtime Git update skipped."
         )
-        return
+        return False
 
     except GitCommandError as e:
         LOGGER(__name__).warning(
             f"Git command error: {e}. Runtime Git update skipped."
         )
-        return
+        return False
 
     except Exception as e:
         LOGGER(__name__).warning(
-            f"Git initialization check failed: {e}. "
-            "Runtime Git update skipped."
+            f"Git check failed: {e}. Runtime Git update skipped."
         )
-        return
+        return False
