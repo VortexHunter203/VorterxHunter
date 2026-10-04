@@ -95,10 +95,6 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
                 text="ᴏᴡɴᴇʀ",
                 url="https://t.me/BRANDEDKING8",
             ),
-            InlineKeyboardButton(
-                text="sᴜᴘᴘᴏʀᴛ",
-                url="https://t.me/BRANDED_PAID_CC",
-            ),
         ],
         [
             InlineKeyboardButton(
@@ -141,11 +137,6 @@ def stream_markup(_, videoid, chat_id):
             InlineKeyboardButton(
                 text="ᴏᴡɴᴇʀ",
                 url="https://t.me/BRANDEDKING8",
-            ),
-            InlineKeyboardButton(
-                text="sᴜᴘᴘᴏʀᴛ",
-                url="https://t.me/BRANDED_PAID_CC",
-            ),
         ],
         [
             InlineKeyboardButton(
