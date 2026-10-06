@@ -150,7 +150,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             f"๏ 𝐔𝐒𝐄𝐑𝐍𝐀𝐌𝐄 ➠ {username}\n"
             f"๏ 𝐌𝐀𝐃𝐄 𝐁𝐘 ➠ "
             f"<a href=\"https://t.me/BRANDEDKING8\">"
-            f"𝗕𝗥𝗔𝗡𝗗𝗘𝗗 𓆩🇽𓆪 𝗞𝗜𝗡𝗚 📿</a>\n"
+            f"Bʀᴀɴᴅᴇᴅ Kɪɴɢ 📿</a>\n"
             f"➖➖➖➖➖➖➖➖➖➖"
             f"</blockquote></b>"
         )
