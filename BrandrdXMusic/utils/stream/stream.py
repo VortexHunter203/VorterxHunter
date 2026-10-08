@@ -5,6 +5,7 @@ import random
 import string
 import asyncio
 from pyrogram import client, filters
+from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 from BrandrdXMusic.utils.database import get_assistant
@@ -56,6 +57,52 @@ from BrandrdXMusic.utils.stream.queue import put_queue, put_queue_index
 from BrandrdXMusic.utils.thumbnails import get_thumb
 
 from py_yt import VideosSearch
+
+
+
+async def _safe_send_photo(*args, **kwargs):
+    """Send a photo with bounded FloodWait retries."""
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            return await app.send_photo(*args, **kwargs)
+        except FloodWait as e:
+            wait_time = int(getattr(e, "value", 0) or 0)
+            print(
+                f"[FloodWait] app.send_photo blocked for {wait_time}s "
+                f"(attempt {attempt + 1}/{max_retries + 1})"
+            )
+            if attempt >= max_retries:
+                raise
+            await asyncio.sleep(wait_time)
+
+async def _safe_send_message(*args, **kwargs):
+    """Send a message with bounded FloodWait retries."""
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            return await app.send_message(*args, **kwargs)
+        except FloodWait as e:
+            wait_time = int(getattr(e, "value", 0) or 0)
+            print(
+                f"[FloodWait] app.send_message blocked for {wait_time}s "
+                f"(attempt {attempt + 1}/{max_retries + 1})"
+            )
+            if attempt >= max_retries:
+                raise
+            await asyncio.sleep(wait_time)
+
+async def _safe_edit_text(message, text, **kwargs):
+    """Edit status message without creating another FloodWait crash."""
+    try:
+        return await message.edit_text(text, **kwargs)
+    except FloodWait as e:
+        wait_time = int(getattr(e, "value", 0) or 0)
+        print(f"[FloodWait] edit_text blocked for {wait_time}s")
+        return None
+    except Exception as e:
+        print(f"[safe_edit_text] Failed: {e}")
+        return None
 
 
 async def stream(
@@ -120,7 +167,7 @@ async def stream(
                         vidid, mystic, video=status, videoid=True
                     )
                 except:
-                    await mystic.edit_text(_["play_3"])
+                    await _safe_edit_text(mystic, _["play_3"])
                 await Hotty.join_call(
                     chat_id,
                     original_chat_id,
@@ -142,7 +189,7 @@ async def stream(
                 )
                 img = await get_thumb(vidid)
                 button = stream_markup(_, vidid, chat_id)
-                run = await app.send_photo(
+                run = await _safe_send_photo(
                     original_chat_id,
                     photo=img,
                     caption=_["stream_1"].format(
@@ -167,7 +214,7 @@ async def stream(
                 car = msg
             carbon = await Carbon.generate(car, randint(100, 10000000))
             upl = close_markup(_)
-            return await app.send_photo(
+            return await _safe_send_photo(
                 original_chat_id,
                 photo=carbon,
                 caption=_["play_21"].format(position, link),
@@ -185,7 +232,7 @@ async def stream(
                 vidid, mystic, videoid=True, video=status
             )
         except:
-            await mystic.edit_text(_["play_3"])
+            await _safe_edit_text(mystic, _["play_3"])
         if await is_active_chat(chat_id):
             await put_queue(
                 chat_id,
@@ -201,7 +248,7 @@ async def stream(
             img = await get_thumb(vidid)
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await app.send_photo(
+            await _safe_send_photo(
                 chat_id=original_chat_id,
                 photo=img,
                 caption=_["queue_4"].format(
@@ -233,7 +280,7 @@ async def stream(
             )
             img = await get_thumb(vidid)
             button = stream_markup(_, vidid, chat_id)
-            run = await app.send_photo(
+            run = await _safe_send_photo(
                 original_chat_id,
                 photo=img,
                 caption=_["stream_1"].format(
@@ -265,7 +312,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await app.send_message(
+            await _safe_send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -287,7 +334,7 @@ async def stream(
                 forceplay=forceplay,
             )
             button = stream_markup2(_, chat_id)
-            run = await app.send_photo(
+            run = await _safe_send_photo(
                 original_chat_id,
                 photo=config.SOUNCLOUD_IMG_URL,
                 caption=_["stream_1"].format(
@@ -317,7 +364,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await app.send_message(
+            await _safe_send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -341,7 +388,7 @@ async def stream(
             if video:
                 await add_active_video_chat(chat_id)
             button = stream_markup2(_, chat_id)
-            run = await app.send_photo(
+            run = await _safe_send_photo(
                 original_chat_id,
                 photo=config.TELEGRAM_VIDEO_URL if video else config.TELEGRAM_AUDIO_URL,
                 caption=_["stream_1"].format(link, title[:23], duration_min, user_name),
@@ -370,7 +417,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await app.send_message(
+            await _safe_send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -402,7 +449,7 @@ async def stream(
             )
             img = await get_thumb(vidid)
             button = stream_markup2(_, chat_id)
-            run = await app.send_photo(
+            run = await _safe_send_photo(
                 original_chat_id,
                 photo=img,
                 caption=_["stream_1"].format(
@@ -457,7 +504,7 @@ async def stream(
                 forceplay=forceplay,
             )
             button = stream_markup2(_, chat_id)
-            run = await app.send_photo(
+            run = await _safe_send_photo(
                 original_chat_id,
                 photo=config.STREAM_IMG_URL,
                 caption=_["stream_2"].format(user_name),
