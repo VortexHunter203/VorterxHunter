@@ -37,6 +37,7 @@ beautifulsoup4
 py-yt-search
 youtube_search
 youtube-search-python
+Pyrogram==2.0.106
 unidecode
 #git+https://github.com/joetats/youtube_search@master
 #git+https://github.com/alexmercerind/youtube-search-python@main
