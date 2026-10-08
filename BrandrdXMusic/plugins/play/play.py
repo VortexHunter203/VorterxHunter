@@ -1,5 +1,8 @@
+import asyncio
 import random
 import string
+
+from pyrogram.errors import FloodWait
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
@@ -23,6 +26,19 @@ from BrandrdXMusic.utils.inline import (
 from BrandrdXMusic.utils.logger import play_logs
 from BrandrdXMusic.utils.stream.stream import stream
 from config import BANNED_USERS, lyrical
+
+
+async def safe_edit_text(message, text, **kwargs):
+    """Edit a message without causing a second FloodWait crash."""
+    try:
+        return await message.edit_text(text, **kwargs)
+    except FloodWait as e:
+        wait_time = int(getattr(e, "value", 0) or 0)
+        print(f"[FloodWait] edit_text blocked for {wait_time}s")
+        return None
+    except Exception as e:
+        print(f"[safe_edit_text] Failed: {e}")
+        return None
 
 
 @app.on_message(
@@ -374,11 +390,18 @@ async def play_commnd(
                 spotify=spotify,
                 forceplay=fplay,
             )
+        except FloodWait as e:
+            wait_time = int(getattr(e, "value", 0) or 0)
+            print(f"[FloodWait] stream() blocked for {wait_time}s")
+            return await safe_edit_text(
+                mystic,
+                f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
+            )
         except Exception as e:
             print(f"Error: {e}")
             ex_type = type(e).__name__
-            err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-            return await mystic.edit_text(err)
+            err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+            return await safe_edit_text(mystic, err)
         await mystic.delete()
         return await play_logs(message, streamtype=streamtype)
     else:
@@ -502,11 +525,18 @@ async def play_music(client, CallbackQuery, _):
             streamtype="youtube",
             forceplay=ffplay,
         )
+    except FloodWait as e:
+        wait_time = int(getattr(e, "value", 0) or 0)
+        print(f"[FloodWait] stream() blocked for {wait_time}s")
+        return await safe_edit_text(
+            mystic,
+            f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
+        )
     except Exception as e:
         print(f"Error: {e}")
         ex_type = type(e).__name__
-        err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-        return await mystic.edit_text(err)
+        err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+        return await safe_edit_text(mystic, err)
     return await mystic.delete()
 
 
@@ -601,11 +631,18 @@ async def play_playlists_command(client, CallbackQuery, _):
             spotify=spotify,
             forceplay=ffplay,
         )
+    except FloodWait as e:
+        wait_time = int(getattr(e, "value", 0) or 0)
+        print(f"[FloodWait] stream() blocked for {wait_time}s")
+        return await safe_edit_text(
+            mystic,
+            f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
+        )
     except Exception as e:
         print(f"Error: {e}")
         ex_type = type(e).__name__
-        err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-        return await mystic.edit_text(err)
+        err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+        return await safe_edit_text(mystic, err)
     return await mystic.delete()
 
 
