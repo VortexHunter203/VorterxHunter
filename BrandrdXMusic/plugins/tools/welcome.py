@@ -168,7 +168,7 @@ async def greet_group(_, member: ChatMemberUpdated):
                             "⦿ ᴀᴅᴅ ᴍᴇ ⦿",
                             url=(
                                 "https://t.me/"
-                                "Sustumm_music_bot"
+                                "Systumm_music_bot"
                                 "?startgroup=true"
                             )
                         )
