@@ -42,11 +42,6 @@ JOIN_TIMEOUT = 60
 CHANGE_TIMEOUT = 60
 loop = asyncio.get_event_loop_policy().get_event_loop()
 
-# Keep the current track start time to reject clearly premature end events.
-stream_started = {}
-EARLY_END_GRACE = 30
-
-
 
 def _file_valid(path):
     if not path or not isinstance(path, (str, os.PathLike)):
@@ -74,9 +69,6 @@ async def _clear_(chat_id):
     db[chat_id] = []
     await remove_active_video_chat(chat_id)
     await remove_active_chat(chat_id)
-    stream_started.pop(chat_id, None)
-    autoend.pop(chat_id, None)
-    counter.pop(chat_id, None)
     LOG.info('[VC] Cleared chat: %s', chat_id)
 
 
@@ -233,7 +225,6 @@ class Call(PyTgCalls):
         if str(db[chat_id][0]['file']) != str(file_path):
             raise AssistantErr('Playback file changed during speed conversion.')
         await assistant.change_stream(chat_id, stream)
-        stream_started[chat_id] = time.monotonic()
         if str(db[chat_id][0]['file']) == str(file_path):
             if not playing[0].get('old_dur'):
                 db[chat_id][0]['old_dur'] = db[chat_id][0]['dur']
@@ -264,13 +255,11 @@ class Call(PyTgCalls):
         assistant = await group_assistant(self, chat_id)
         LOG.info('[VC] Skip stream: chat=%s link=%s', chat_id, link)
         await assistant.change_stream(chat_id, _make_stream(link, video=bool(video)))
-        stream_started[chat_id] = time.monotonic()
 
     async def seek_stream(self, chat_id, file_path, to_seek, duration, mode):
         assistant = await group_assistant(self, chat_id)
         stream = _make_stream(file_path, video=(mode == 'video'), ffmpeg_parameters=f'-ss {to_seek} -to {duration}')
         await assistant.change_stream(chat_id, stream)
-        stream_started[chat_id] = time.monotonic()
 
     async def stream_call(self, link):
         assistant = await group_assistant(self, config.LOGGER_ID)
@@ -312,7 +301,6 @@ class Call(PyTgCalls):
                 raise AssistantErr(_['call_8'])
             LOG.exception('[VC] Unexpected join call error')
             raise
-        stream_started[chat_id] = time.monotonic()
         LOG.info('[VC] JOIN SUCCESS chat=%s time=%.2fs', chat_id, time.monotonic() - started)
         await add_active_chat(chat_id)
         await music_on(chat_id)
@@ -397,10 +385,9 @@ class Call(PyTgCalls):
             except Exception:
                 LOG.exception('[QUEUE] Live stream change failed')
                 return await app.send_message(original_chat_id, text=_['call_6'])
-            img = await get_thumb(videoid)
+            img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
             button = stream_markup2(_, chat_id)
             run = await app.send_photo(
-                has_spoiler=True,
                 chat_id=original_chat_id, photo=img,
                 caption=_['stream_1'].format(f'https://t.me/{app.username}?start=info_{videoid}', title[:23], duration, user),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -431,11 +418,10 @@ class Call(PyTgCalls):
                 LOG.exception('[QUEUE] change_stream failed')
                 return await _safe_error(mystic, _['call_6'])
             LOG.info('[QUEUE] PLAYBACK STARTED: %s', videoid)
-            img = await get_thumb(videoid)
+            img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
             button = stream_markup(_, videoid, chat_id)
             await _safe_delete(mystic)
             run = await app.send_photo(
-                has_spoiler=True,
                 chat_id=original_chat_id, photo=img,
                 caption=_['stream_1'].format(f'https://t.me/{app.username}?start=info_{videoid}', title[:23], duration, user),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -451,7 +437,6 @@ class Call(PyTgCalls):
                 return await app.send_message(original_chat_id, text=_['call_6'])
             button = stream_markup2(_, chat_id)
             run = await app.send_photo(
-                has_spoiler=True,
                 chat_id=original_chat_id, photo=config.STREAM_IMG_URL,
                 caption=_['stream_2'].format(user), reply_markup=InlineKeyboardMarkup(button),
             )
@@ -467,7 +452,6 @@ class Call(PyTgCalls):
             if videoid == 'telegram':
                 button = stream_markup2(_, chat_id)
                 run = await app.send_photo(
-                    has_spoiler=True,
                     chat_id=original_chat_id,
                     photo=config.TELEGRAM_AUDIO_URL if str(streamtype) == 'audio' else config.TELEGRAM_VIDEO_URL,
                     caption=_['stream_1'].format(config.SUPPORT_CHAT, title[:23], duration, user),
@@ -478,7 +462,6 @@ class Call(PyTgCalls):
             elif videoid == 'soundcloud':
                 button = stream_markup2(_, chat_id)
                 run = await app.send_photo(
-                    has_spoiler=True,
                     chat_id=original_chat_id, photo=config.SOUNDCLOUD_IMG_URL,
                     caption=_['stream_1'].format(config.SUPPORT_CHAT, title[:23], duration, user),
                     reply_markup=InlineKeyboardMarkup(button),
@@ -486,17 +469,15 @@ class Call(PyTgCalls):
                 db[chat_id][0]['mystic'] = run
                 db[chat_id][0]['markup'] = 'tg'
             else:
-                img = await get_thumb(videoid)
+                img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
                 button = stream_markup(_, videoid, chat_id)
                 run = await app.send_photo(
-                    has_spoiler=True,
                     chat_id=original_chat_id, photo=img,
                     caption=_['stream_1'].format(f'https://t.me/{app.username}?start=info_{videoid}', title[:23], duration, user),
                     reply_markup=InlineKeyboardMarkup(button),
                 )
                 db[chat_id][0]['mystic'] = run
                 db[chat_id][0]['markup'] = 'stream'
-        stream_started[chat_id] = time.monotonic()
         LOG.info('[QUEUE] Next stream processed: %s', videoid)
 
     async def ping(self):
@@ -540,29 +521,27 @@ class Call(PyTgCalls):
         LOG.info('[VC] PyTgCalls startup completed. Active assistants: %s', started)
 
     async def decorators(self):
-        # Separate service callbacks identify WHY the assistant left.
-        async def service_event(chat_id, reason):
-            LOG.warning('[VC EVENT] %s chat=%s queue=%s elapsed=%.1fs',
-                        reason, chat_id, len(db.get(chat_id) or []),
-                        time.monotonic() - stream_started.get(chat_id, time.monotonic()))
+        @self.one.on_kicked()
+        @self.two.on_kicked()
+        @self.three.on_kicked()
+        @self.four.on_kicked()
+        @self.five.on_kicked()
+        @self.one.on_closed_voice_chat()
+        @self.two.on_closed_voice_chat()
+        @self.three.on_closed_voice_chat()
+        @self.four.on_closed_voice_chat()
+        @self.five.on_closed_voice_chat()
+        @self.one.on_left()
+        @self.two.on_left()
+        @self.three.on_left()
+        @self.four.on_left()
+        @self.five.on_left()
+        async def stream_services_handler(_, chat_id: int):
             try:
+                LOG.info('[VC] Stream service event: %s', chat_id)
                 await self.stop_stream(chat_id)
             except Exception:
-                LOG.exception('[VC EVENT] Service handler failed: %s', reason)
-
-        async def kicked_handler(_, chat_id):
-            await service_event(chat_id, 'KICKED')
-
-        async def closed_handler(_, chat_id):
-            await service_event(chat_id, 'VOICE_CHAT_CLOSED')
-
-        async def left_handler(_, chat_id):
-            await service_event(chat_id, 'ASSISTANT_LEFT')
-
-        for assistant in (self.one, self.two, self.three, self.four, self.five):
-            assistant.on_kicked()(kicked_handler)
-            assistant.on_closed_voice_chat()(closed_handler)
-            assistant.on_left()(left_handler)
+                LOG.exception('[VC] Stream service handler failed')
 
         @self.one.on_stream_end()
         @self.two.on_stream_end()
@@ -573,23 +552,8 @@ class Call(PyTgCalls):
             try:
                 if not isinstance(update, StreamAudioEnded):
                     return
-                chat_id = update.chat_id
-                tracks = db.get(chat_id) or []
-                elapsed = time.monotonic() - stream_started.get(chat_id, time.monotonic())
-                expected = 0
-                if tracks:
-                    try:
-                        expected = float(tracks[0].get('seconds') or 0)
-                    except (ValueError, TypeError):
-                        pass
-                LOG.warning('[VC EVENT] AUDIO_ENDED chat=%s elapsed=%.1fs expected=%ss queue=%s',
-                            chat_id, elapsed, expected, len(tracks))
-                # Do not discard a multi-minute song due to a premature end update.
-                # This is a safety guard, not a fix for a truncated/corrupt audio file.
-                if expected > 45 and elapsed < EARLY_END_GRACE:
-                    LOG.warning('[VC EVENT] Premature stream-end ignored: chat=%s', chat_id)
-                    return
-                await self.change_stream(client, chat_id)
+                LOG.info('[VC] Audio stream ended: %s', update.chat_id)
+                await self.change_stream(client, update.chat_id)
             except Exception:
                 LOG.exception('[VC] Stream end handler failed')
 
