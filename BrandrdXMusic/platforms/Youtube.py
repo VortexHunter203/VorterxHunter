@@ -21,7 +21,7 @@ PRIMARY_API_URL = os.getenv(
 
 FALLBACK_API_URL = os.getenv(
     "API_URL_FALLBACK",
-    "https://api01.shrutibots.site",
+    "https://api.shrutibots.in",
 )
 
 API_KEY = os.getenv(
