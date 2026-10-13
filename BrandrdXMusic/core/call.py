@@ -10,7 +10,7 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
-from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
+from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall, NotInGroupCallError
 from pytgcalls.types import (
     JoinedGroupCallParticipant, LeftGroupCallParticipant, MediaStream,
     AudioQuality, VideoQuality, Update,
@@ -101,11 +101,16 @@ async def _safe_error(message, text):
 
 
 def _already_left(error):
+    if isinstance(error, NotInGroupCallError):
+        return True
+    if type(error).__name__ == "ConnectionNotFound":
+        return True
     msg = str(error).lower()
     return (
         "isn't in a group call" in msg
         or 'is not in a group call' in msg
         or 'not in a group call' in msg
+        or 'connection with chat id' in msg and 'not found' in msg
     )
 
 
