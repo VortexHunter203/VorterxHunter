@@ -3,7 +3,6 @@ telethon==1.36.0
 aiofiles
 apscheduler
 aiohttp
-asyncio==3.4.3
 gTTS
 dnspython==2.6.1
 hachoir
@@ -38,7 +37,5 @@ py-yt-search
 youtube_search
 youtube-search-python
 unidecode
-#git+https://github.com/joetats/youtube_search@master
-#git+https://github.com/alexmercerind/youtube-search-python@main
 https://github.com/kurigram-org/kurigram/archive/v2.1.23.zip
 bing_image_downloader
