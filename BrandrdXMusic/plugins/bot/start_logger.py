@@ -41,3 +41,8 @@ async def send_start_log(client, message: Message):
             chat_id=logger_id,
             text=text,
             parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True,
+        )
+        LOGGER.info("START LOGGER: sent for user %s", user.id)
+    except Exception:
+        LOGGER.exception("START LOGGER: failed to send notification for user %s", user.id)
