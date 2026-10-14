@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import time
-from html import escape
 
-from pyrogram import enums, filters
+from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from youtubesearchpython.__future__ import VideosSearch
@@ -12,6 +11,7 @@ import config
 from BrandrdXMusic import app
 from BrandrdXMusic.misc import _boot_
 from BrandrdXMusic.plugins.sudo.sudoers import sudoers_list
+from BrandrdXMusic.plugins.start_logger import send_start_log
 from BrandrdXMusic.utils.database import (
     add_served_chat,
     add_served_user,
@@ -26,45 +26,6 @@ from config import BANNED_USERS
 from strings import get_string
 
 LOGGER = logging.getLogger(__name__)
-
-
-async def send_start_log(client, message: Message):
-    """Send one notification for each eligible private /start, without breaking welcome."""
-    user = message.from_user
-    if not user:
-        return
-
-    logger_id = getattr(config, "LOGGER_ID", None)
-    if not logger_id:
-        LOGGER.error("START LOGGER: LOGGER_ID is missing from config.py / environment")
-        return
-
-    try:
-        logger_id = int(logger_id)
-        name = escape(" ".join(filter(None, [user.first_name, user.last_name])) or "Unknown")
-        username = f"@{escape(user.username)}" if user.username else "No username"
-        command = escape(message.text or "/start")
-        link = f"tg://user?id={user.id}"
-
-        text = (
-            "<b>🎫 ɴᴇᴡ ʙᴏᴛ sᴛᴀʀᴛ</b>\n\n"
-            "<blockquote>"
-            f'👤 <a href="{link}">{name}</a> ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ.\n\n'
-            f"🆔 <b>ᴜsᴇʀ ɪᴅ :</b> <code>{user.id}</code>\n"
-            f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> {username}\n"
-            f'👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>\n'
-            f"⚡ <b>ᴄᴏᴍᴍᴀɴᴅ :</b> <code>{command}</code>"
-            "</blockquote>"
-        )
-        await client.send_message(
-            chat_id=logger_id,
-            text=text,
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
-        LOGGER.info("START LOGGER: sent for user %s", user.id)
-    except Exception:
-        LOGGER.exception("START LOGGER: failed to send notification for user %s", user.id)
 
 
 @app.on_message(filters.command(["start"]) & filters.private & ~BANNED_USERS)
