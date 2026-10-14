@@ -36,7 +36,7 @@ from BrandrdXMusic.utils.thumbnails import get_thumb
 from strings import get_string
 
 LOG = LOGGER(__name__)
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.WARNING)
 autoend = {}
 counter = {}
 DOWNLOAD_TIMEOUT = 270
