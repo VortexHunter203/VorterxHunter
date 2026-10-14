@@ -1,15 +1,9 @@
-
-import logging
 from html import escape
 
 from pyrogram import enums
 from pyrogram.types import Message
 
 import config
-
-
-LOGGER = logging.getLogger(__name__)
-
 
 async def send_start_log(client, message: Message):
     """Send private /start notification without interrupting welcome."""
