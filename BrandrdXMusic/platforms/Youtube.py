@@ -8,9 +8,14 @@ from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
 import aiohttp
 
-PRIMARY_API_URL = os.getenv("API_URL", "https://api.shrutibots.in")
 
-FALLBACK_API_URL = os.getenv(API_URL_FALLBACK", "http://165.232.182.138:8000")
+PRIMARY_API_URL = os.getenv(
+    "API_URL", "https://api.shrutibots.in"
+)
+
+FALLBACK_API_URL = os.getenv(
+    "API_URL_FALLBACK", "http://165.232.182.138:8000"
+)
 
 DOWNLOAD_DIR = "downloads"
 
