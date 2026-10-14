@@ -11,7 +11,7 @@ import config
 from BrandrdXMusic import app
 from BrandrdXMusic.misc import _boot_
 from BrandrdXMusic.plugins.sudo.sudoers import sudoers_list
-from BrandrdXMusic.plugins.start_logger import send_start_log
+from BrandrdXMusic.plugins.bot.start_logger import send_start_log
 from BrandrdXMusic.utils.database import (
     add_served_chat,
     add_served_user,
