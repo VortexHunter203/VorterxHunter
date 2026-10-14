@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 from html import escape
 
@@ -7,9 +6,6 @@ from pyrogram import enums, filters
 from pyrogram.errors import FloodWait, UserNotParticipant
 
 from BrandrdXMusic import app
-
-
-LOG = logging.getLogger(__name__)
 
 SHAYARI_TASKS = {}
 SHAYARI_STOPS = {}
