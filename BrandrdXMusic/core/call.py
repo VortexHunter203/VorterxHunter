@@ -3,11 +3,9 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from html import escape
 from typing import Union
 
-from pyrogram import Client, enums
-from pyrogram.errors import FloodWait
+from pyrogram import Client
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ntgcalls import TelegramServerError
@@ -109,97 +107,6 @@ def _already_left(error):
         or 'is not in a group call' in msg
         or 'not in a group call' in msg
     )
-
-
-async def _vc_delete_later(message):
-    try:
-        await asyncio.sleep(5)
-        await _safe_delete(message)
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        LOG.exception('[VC Logger] Auto-delete failed')
-
-
-async def _vc_join_keyboard(chat_id):
-    try:
-        chat = await app.get_chat(chat_id)
-        username = getattr(chat, 'username', None)
-        if username:
-            vc_url = f'https://t.me/{username}?voicechat'
-        elif str(chat_id).startswith('-100'):
-            vc_url = f'https://t.me/c/{str(chat_id)[4:]}?voicechat'
-        else:
-            return None
-        return InlineKeyboardMarkup([[
-            InlineKeyboardButton('🎧 Join To VC', url=vc_url)
-        ]])
-    except Exception as error:
-        LOG.warning('[VC Logger] Join button creation failed: %s', error)
-        return None
-
-
-VC_LOG_LOCKS = {}
-VC_LOG_COOLDOWN = {}
-VC_LOG_PENDING = set()
-VC_LOG_FLOOD_UNTIL = 0.0
-VC_EVENT_COOLDOWN = 8
-VC_LOG_MAX_WAIT = 60
-
-
-async def _send_vc_event(chat_id, user_id, tag, text, keyboard):
-    """Send serialized VC notifications, respecting Telegram flood limits."""
-    global VC_LOG_FLOOD_UNTIL
-    key = (chat_id, user_id, tag)
-    lock = VC_LOG_LOCKS.setdefault(chat_id, asyncio.Lock())
-    try:
-        async with lock:
-            now = time.monotonic()
-            if now - VC_LOG_COOLDOWN.get(key, 0) < VC_EVENT_COOLDOWN:
-                return None
-
-            remaining = VC_LOG_FLOOD_UNTIL - now
-            if remaining > 0:
-                if remaining > VC_LOG_MAX_WAIT:
-                    return None
-                await asyncio.sleep(remaining)
-
-            for attempt in range(2):
-                try:
-                    sent = await app.send_message(
-                        chat_id=chat_id,
-                        text=text,
-                        reply_markup=keyboard,
-                        parse_mode=enums.ParseMode.HTML,
-                        disable_web_page_preview=True,
-                    )
-                    VC_LOG_COOLDOWN[key] = time.monotonic()
-                    asyncio.create_task(_vc_delete_later(sent))
-                    return sent
-                except FloodWait as error:
-                    seconds = max(1, int(error.value))
-                    VC_LOG_FLOOD_UNTIL = max(
-                        VC_LOG_FLOOD_UNTIL,
-                        time.monotonic() + seconds + 1,
-                    )
-                    LOG.warning(
-                        '[VC Logger] FloodWait: chat=%s wait=%ss',
-                        chat_id, seconds,
-                    )
-                    if seconds > VC_LOG_MAX_WAIT or attempt:
-                        return None
-                    await asyncio.sleep(seconds + 1)
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    LOG.exception(
-                        '[VC Logger] Message sending failed: chat=%s user=%s',
-                        chat_id, user_id,
-                    )
-                    return None
-    finally:
-        VC_LOG_PENDING.discard(key)
-    return None
 
 
 class Call(PyTgCalls):
@@ -473,7 +380,7 @@ class Call(PyTgCalls):
             except Exception:
                 LOG.exception('[QUEUE] Live stream change failed')
                 return await app.send_message(original_chat_id, text=_['call_6'])
-            img = await get_thumb(videoid)
+            img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
             button = stream_markup2(_, chat_id)
             run = await app.send_photo(
                 chat_id=original_chat_id, photo=img,
@@ -506,7 +413,7 @@ class Call(PyTgCalls):
                 LOG.exception('[QUEUE] change_stream failed')
                 return await _safe_error(mystic, _['call_6'])
             LOG.info('[QUEUE] PLAYBACK STARTED: %s', videoid)
-            img = await get_thumb(videoid)
+            img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
             button = stream_markup(_, videoid, chat_id)
             await _safe_delete(mystic)
             run = await app.send_photo(
@@ -557,7 +464,7 @@ class Call(PyTgCalls):
                 db[chat_id][0]['mystic'] = run
                 db[chat_id][0]['markup'] = 'tg'
             else:
-                img = await get_thumb(videoid)
+                img = await get_thumb(videoid=videoid, title=title, artist=artist, duration=duration)
                 button = stream_markup(_, videoid, chat_id)
                 run = await app.send_photo(
                     chat_id=original_chat_id, photo=img,
@@ -652,60 +559,47 @@ class Call(PyTgCalls):
         @self.five.on_participants_change()
         async def participants_change_handler(_, update: Update):
             try:
-                if not isinstance(update, (JoinedGroupCallParticipant, LeftGroupCallParticipant)):
+                if not await is_vclogger_on(update.chat_id):
                     return
-                chat_id = getattr(update, 'chat_id', None)
-                participant = getattr(update, 'participant', None)
-                if chat_id is None or participant is None:
-                    LOG.warning('[VC Logger] Missing chat or participant: %r', update)
+                if isinstance(update, JoinedGroupCallParticipant):
+                    tag = '#JᴏɪɴᴇᴅVᴄ'
+                elif isinstance(update, LeftGroupCallParticipant):
+                    tag = '#LᴇғᴛVᴄ'
+                else:
                     return
-                user_id = getattr(participant, 'user_id', None)
-                if user_id is None:
-                    LOG.warning('[VC Logger] Missing participant user_id: %r', participant)
-                    return
-                if not await is_vclogger_on(chat_id):
-                    return
-                tag = '#JᴏɪɴᴇᴅVᴄ' if isinstance(update, JoinedGroupCallParticipant) else '#LᴇғᴛVᴄ'
+                user_id = update.participant.user_id
                 role = 'MEMBER'
                 try:
-                    member = await app.get_chat_member(chat_id, user_id)
+                    member = await app.get_chat_member(update.chat_id, user_id)
                     if member.status == ChatMemberStatus.OWNER:
                         role = 'OWNER'
                     elif member.status == ChatMemberStatus.ADMINISTRATOR:
                         role = 'ADMIN'
-                except Exception as error:
-                    LOG.warning('[VC Logger] Role lookup failed: chat=%s user=%s error=%s', chat_id, user_id, error)
+                    elif member.status == ChatMemberStatus.MEMBER:
+                        role = 'MEMBER'
+                except Exception as e:
+                    LOG.warning('[VC Logger] Role detection failed user=%s error=%s', user_id, e)
                 mention = await vclogger_mention(user_id)
                 text = (
-                    f'<b><blockquote>{tag}\n\n'
+                    f'<blockquote>{tag}\n'
                     f'➤ Usᴇʀ - {mention}\n'
                     f'➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n'
-                    f'➤ Rᴏʟᴇ - {role}'
-                    '</blockquote></b>'
+                    f'➤ Rᴏʟᴇ - <b>{role}</b></blockquote>'
                 )
-                key = (chat_id, user_id, tag)
-                if key in VC_LOG_PENDING:
-                    return None
-                if time.monotonic() - VC_LOG_COOLDOWN.get(key, 0) < VC_EVENT_COOLDOWN:
-                    return None
-                VC_LOG_PENDING.add(key)
-                try:
-                    keyboard = await _vc_join_keyboard(chat_id)
-                    asyncio.create_task(
-                        _send_vc_event(
-                            chat_id=chat_id,
-                            user_id=user_id,
-                            tag=tag,
-                            text=text,
-                            keyboard=keyboard,
-                        )
-                    )
-                except BaseException:
-                    VC_LOG_PENDING.discard(key)
-                    raise
-                return None
-            except asyncio.CancelledError:
-                raise
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton('🎧 Jᴏɪɴ Tᴏ Vᴄ', url='https://t.me/c/' + str(update.chat_id)[4:])
+                ]])
+                sent_message = await app.send_message(
+                    chat_id=update.chat_id, text=text, reply_markup=keyboard,
+                )
+                LOG.info('[VC Logger] %s user=%s chat=%s role=%s', tag, user_id, update.chat_id, role)
+
+                async def delete_after_10_seconds():
+                    await asyncio.sleep(10)
+                    await _safe_delete(sent_message)
+
+                asyncio.create_task(delete_after_10_seconds())
+                return sent_message
             except Exception:
                 LOG.exception('[VC Logger] Participant handler failed')
                 return None
