@@ -28,13 +28,12 @@ async def send_start_log(client, message: Message):
         link = f"tg://user?id={user.id}"
 
         text = (
-            "<b>🎫 ɴᴇᴡ ʙᴏᴛ sᴛᴀʀᴛ</b>\n\n"
+            "<b>🎫 ɴᴇᴡ ᴜsᴇʀ ʙᴏᴛ sᴛᴀʀᴛ</b>\n\n"
             "<blockquote>"
             f'👤 <a href="{link}">{name}</a> ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ.\n\n'
             f"🆔 <b>ᴜsᴇʀ ɪᴅ :</b> <code>{user.id}</code>\n"
             f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> {username}\n"
-            f'👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>\n'
-            f"⚡ <b>ᴄᴏᴍᴍᴀɴᴅ :</b> <code>{command}</code>"
+            f'👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</code>"
             "</blockquote>"
         )
         await client.send_message(
