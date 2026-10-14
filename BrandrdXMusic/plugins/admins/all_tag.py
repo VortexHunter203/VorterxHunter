@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from html import escape
 
 from pyrogram import enums, filters
@@ -7,9 +6,6 @@ from pyrogram.errors import FloodWait
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.branded_ban import admin_filter
-
-
-LOG = logging.getLogger(__name__)
 
 TAG_TASKS = {}
 TAG_STOPS = {}
