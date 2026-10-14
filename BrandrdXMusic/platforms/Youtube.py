@@ -15,8 +15,8 @@ from py_yt import Playlist, VideosSearch
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.WARNING)
 
-PRIMARY_API_URL = os.getenv('API_URL', 'http://165.232.182.138:8000').rstrip('/')
-FALLBACK_API_URL = os.getenv('API_URL_FALLBACK', 'https://api.shrutibots.in').rstrip('/')
+PRIMARY_API_URL = os.getenv('API_URL', 'https://api.shrutibots.in').rstrip('/')
+FALLBACK_API_URL = os.getenv('API_URL_FALLBACK', 'http://165.232.182.138:8000').rstrip('/')
 API_KEY = os.getenv('API_KEY', '')  # Reserved: configure headers only if the API documents its auth scheme.
 DOWNLOAD_DIR = 'downloads'
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
