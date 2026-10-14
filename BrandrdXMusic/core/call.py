@@ -7,6 +7,7 @@ from html import escape
 from typing import Union
 
 from pyrogram import Client, enums
+from pyrogram.errors import FloodWait
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ntgcalls import TelegramServerError
@@ -136,6 +137,69 @@ async def _vc_join_keyboard(chat_id):
     except Exception as error:
         LOG.warning('[VC Logger] Join button creation failed: %s', error)
         return None
+
+
+VC_LOG_LOCKS = {}
+VC_LOG_COOLDOWN = {}
+VC_LOG_PENDING = set()
+VC_LOG_FLOOD_UNTIL = 0.0
+VC_EVENT_COOLDOWN = 8
+VC_LOG_MAX_WAIT = 60
+
+
+async def _send_vc_event(chat_id, user_id, tag, text, keyboard):
+    """Send serialized VC notifications, respecting Telegram flood limits."""
+    global VC_LOG_FLOOD_UNTIL
+    key = (chat_id, user_id, tag)
+    lock = VC_LOG_LOCKS.setdefault(chat_id, asyncio.Lock())
+    try:
+        async with lock:
+            now = time.monotonic()
+            if now - VC_LOG_COOLDOWN.get(key, 0) < VC_EVENT_COOLDOWN:
+                return None
+
+            remaining = VC_LOG_FLOOD_UNTIL - now
+            if remaining > 0:
+                if remaining > VC_LOG_MAX_WAIT:
+                    return None
+                await asyncio.sleep(remaining)
+
+            for attempt in range(2):
+                try:
+                    sent = await app.send_message(
+                        chat_id=chat_id,
+                        text=text,
+                        reply_markup=keyboard,
+                        parse_mode=enums.ParseMode.HTML,
+                        disable_web_page_preview=True,
+                    )
+                    VC_LOG_COOLDOWN[key] = time.monotonic()
+                    asyncio.create_task(_vc_delete_later(sent))
+                    return sent
+                except FloodWait as error:
+                    seconds = max(1, int(error.value))
+                    VC_LOG_FLOOD_UNTIL = max(
+                        VC_LOG_FLOOD_UNTIL,
+                        time.monotonic() + seconds + 1,
+                    )
+                    LOG.warning(
+                        '[VC Logger] FloodWait: chat=%s wait=%ss',
+                        chat_id, seconds,
+                    )
+                    if seconds > VC_LOG_MAX_WAIT or attempt:
+                        return None
+                    await asyncio.sleep(seconds + 1)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    LOG.exception(
+                        '[VC Logger] Message sending failed: chat=%s user=%s',
+                        chat_id, user_id,
+                    )
+                    return None
+    finally:
+        VC_LOG_PENDING.discard(key)
+    return None
 
 
 class Call(PyTgCalls):
@@ -619,16 +683,27 @@ class Call(PyTgCalls):
                     f'➤ Rᴏʟᴇ - {role}'
                     '</blockquote></b>'
                 )
-                keyboard = await _vc_join_keyboard(chat_id)
-                sent_message = await app.send_message(
-                    chat_id=chat_id,
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode=enums.ParseMode.HTML,
-                    disable_web_page_preview=True,
-                )
-                asyncio.create_task(_vc_delete_later(sent_message))
-                return sent_message
+                key = (chat_id, user_id, tag)
+                if key in VC_LOG_PENDING:
+                    return None
+                if time.monotonic() - VC_LOG_COOLDOWN.get(key, 0) < VC_EVENT_COOLDOWN:
+                    return None
+                VC_LOG_PENDING.add(key)
+                try:
+                    keyboard = await _vc_join_keyboard(chat_id)
+                    asyncio.create_task(
+                        _send_vc_event(
+                            chat_id=chat_id,
+                            user_id=user_id,
+                            tag=tag,
+                            text=text,
+                            keyboard=keyboard,
+                        )
+                    )
+                except BaseException:
+                    VC_LOG_PENDING.discard(key)
+                    raise
+                return None
             except asyncio.CancelledError:
                 raise
             except Exception:
