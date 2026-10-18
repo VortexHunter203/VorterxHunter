@@ -2,15 +2,15 @@ import asyncio
 import random
 import string
 
-from pyrogram.errors import FloodWait
-
 from pyrogram import filters
+from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 
 import config
 from BrandrdXMusic import Apple, Resso, SoundCloud, Spotify, Telegram, YouTube, app
 from BrandrdXMusic.core.call import Hotty
+from BrandrdXMusic.logging import LOGGER
 from BrandrdXMusic.utils import seconds_to_min, time_to_seconds
 from BrandrdXMusic.utils.channelplay import get_channeplayCB
 from BrandrdXMusic.utils.decorators.language import languageCB
@@ -26,19 +26,6 @@ from BrandrdXMusic.utils.inline import (
 from BrandrdXMusic.utils.logger import play_logs
 from BrandrdXMusic.utils.stream.stream import stream
 from config import BANNED_USERS, lyrical
-
-
-async def safe_edit_text(message, text, **kwargs):
-    """Edit a message without causing a second FloodWait crash."""
-    try:
-        return await message.edit_text(text, **kwargs)
-    except FloodWait as e:
-        wait_time = int(getattr(e, "value", 0) or 0)
-        print(f"[FloodWait] edit_text blocked for {wait_time}s")
-        return None
-    except Exception as e:
-        print(f"[safe_edit_text] Failed: {e}")
-        return None
 
 
 @app.on_message(
@@ -69,9 +56,36 @@ async def play_commnd(
     url,
     fplay,
 ):
-    mystic = await message.reply_text(
-        _["play_2"].format(channel) if channel else _["play_1"]
+    await _play_flow(
+        client, message, _, chat_id, video, channel, playmode, url, fplay
     )
+
+
+async def _play_flow(
+    client,
+    message: Message,
+    _,
+    chat_id,
+    video,
+    channel,
+    playmode,
+    url,
+    fplay,
+):
+    try:
+        mystic = await message.reply_text(
+            _["play_2"].format(channel) if channel else _["play_1"]
+        )
+    except FloodWait as e:
+        LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
+        await asyncio.sleep(e.value)
+        try:
+            mystic = await message.reply_text(
+                _["play_2"].format(channel) if channel else _["play_1"]
+            )
+        except FloodWait:
+            LOGGER(__name__).warning("_play_flow: unhandled exception", exc_info=True)
+            return
     plist_id = None
     slider = None
     plist_type = None
@@ -121,11 +135,11 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
-                print(f"Error: {e}")
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            return
         return
     elif video_telegram:
         if message.reply_to_message.document:
@@ -136,6 +150,7 @@ async def play_commnd(
                         _["play_7"].format(f"{' | '.join(formats)}")
                     )
             except:
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 return await mystic.edit_text(
                     _["play_7"].format(f"{' | '.join(formats)}")
                 )
@@ -166,11 +181,11 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
-                print(f"Error: {e}")
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            return
         return
     elif url:
         if await YouTube.exists(url):
@@ -182,6 +197,7 @@ async def play_commnd(
                         message.from_user.id,
                     )
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "yt"
@@ -195,6 +211,7 @@ async def play_commnd(
                 try:
                     details, track_id = await YouTube.track(url)
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -211,8 +228,8 @@ async def play_commnd(
             if "track" in url:
                 try:
                     details, track_id = await Spotify.track(url)
-                except Exception as e:
-                    print(f"play_3 error: fail to process your query | Exception: {e}")
+                except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -220,8 +237,8 @@ async def play_commnd(
             elif "playlist" in url:
                 try:
                     details, plist_id = await Spotify.playlist(url)
-                except Exception as e:
-                    print(f"play_3 error: fail to process your query | Exception: {e}")
+                except Exception:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "spplay"
@@ -231,6 +248,7 @@ async def play_commnd(
                 try:
                     details, plist_id = await Spotify.album(url)
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "spalbum"
@@ -240,6 +258,7 @@ async def play_commnd(
                 try:
                     details, plist_id = await Spotify.artist(url)
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "spartist"
@@ -252,6 +271,7 @@ async def play_commnd(
                 try:
                     details, track_id = await Apple.track(url)
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -261,6 +281,7 @@ async def play_commnd(
                 try:
                     details, plist_id = await Apple.playlist(url)
                 except:
+                    LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "apple"
@@ -272,6 +293,7 @@ async def play_commnd(
             try:
                 details, track_id = await Resso.track(url)
             except:
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 return await mystic.edit_text(_["play_3"])
             streamtype = "youtube"
             img = details["thumb"]
@@ -280,6 +302,7 @@ async def play_commnd(
             try:
                 details, track_path = await SoundCloud.download(url)
             except:
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 return await mystic.edit_text(_["play_3"])
             duration_sec = details["duration_sec"]
             if duration_sec > config.DURATION_LIMIT:
@@ -302,23 +325,24 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
-                print(f"Error: {e}")
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            return
         else:
             try:
-                await Anony.stream_call(url)
+                await Hotty.stream_call(url)
             except NoActiveGroupCall:
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 await mystic.edit_text(_["black_9"])
                 return await app.send_message(
-                    chat_id=config.LOG_GROUP_ID,
+                    chat_id=config.LOGGER_ID,
                     text=_["play_17"],
                 )
             except Exception as e:
-                print(f"Error: {e}")
-                return await mystic.edit_text(_["general_2"].format(type(e).__name__))
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
+                return await mystic.edit_text(_["general_2"].format(f"{type(e).__name__}: {e}"))
             await mystic.edit_text(_["str_2"])
             try:
                 await stream(
@@ -334,9 +358,9 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
-                print(f"Error: {e}")
+                LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
                 return await mystic.edit_text(err)
             return await play_logs(message, streamtype="M3u8 or Index Link")
     else:
@@ -353,6 +377,7 @@ async def play_commnd(
         try:
             details, track_id = await YouTube.track(query)
         except:
+            LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
         streamtype = "youtube"
     if str(playmode) == "Direct":
@@ -390,19 +415,11 @@ async def play_commnd(
                 spotify=spotify,
                 forceplay=fplay,
             )
-        except FloodWait as e:
-            wait_time = int(getattr(e, "value", 0) or 0)
-            print(f"[FloodWait] stream() blocked for {wait_time}s")
-            return await safe_edit_text(
-                mystic,
-                f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
-            )
         except Exception as e:
-            print(f"Error: {e}")
+            LOGGER(__name__).error("_play_flow: unhandled exception", exc_info=True)
             ex_type = type(e).__name__
-            err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-            return await safe_edit_text(mystic, err)
-        await mystic.delete()
+            err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
+            return await mystic.edit_text(err)
         return await play_logs(message, streamtype=streamtype)
     else:
         if plist_type:
@@ -473,23 +490,35 @@ async def play_music(client, CallbackQuery, _):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
         except:
+            LOGGER(__name__).warning("play_music: unhandled exception", exc_info=True)
             return
     try:
         chat_id, channel = await get_channeplayCB(_, cplay, CallbackQuery)
     except:
+        LOGGER(__name__).warning("play_music: unhandled exception", exc_info=True)
         return
     user_name = CallbackQuery.from_user.first_name
     try:
         await CallbackQuery.message.delete()
         await CallbackQuery.answer()
     except:
+        LOGGER(__name__).warning("play_music: unhandled exception", exc_info=True)
         pass
+    await _play_music_flow(
+        _, CallbackQuery, vidid, mode, cplay, fplay, chat_id, channel, user_name
+    )
+
+
+async def _play_music_flow(
+    _, CallbackQuery, vidid, mode, cplay, fplay, chat_id, channel, user_name
+):
     mystic = await CallbackQuery.message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
     try:
         details, track_id = await YouTube.track(vidid, True)
     except:
+        LOGGER(__name__).error("_play_music_flow: unhandled exception", exc_info=True)
         return await mystic.edit_text(_["play_3"])
     if details["duration_min"]:
         duration_sec = time_to_seconds(details["duration_min"])
@@ -504,7 +533,7 @@ async def play_music(client, CallbackQuery, _):
             CallbackQuery.from_user.id,
             mode,
             "c" if cplay == "c" else "g",
-            "f" if fplay else "d",
+            "f" if fplay == "f" else "d",
         )
         return await mystic.edit_text(
             _["play_13"],
@@ -525,33 +554,27 @@ async def play_music(client, CallbackQuery, _):
             streamtype="youtube",
             forceplay=ffplay,
         )
-    except FloodWait as e:
-        wait_time = int(getattr(e, "value", 0) or 0)
-        print(f"[FloodWait] stream() blocked for {wait_time}s")
-        return await safe_edit_text(
-            mystic,
-            f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
-        )
     except Exception as e:
-        print(f"Error: {e}")
+        LOGGER(__name__).error("_play_music_flow: unhandled exception", exc_info=True)
         ex_type = type(e).__name__
-        err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-        return await safe_edit_text(mystic, err)
-    return await mystic.delete()
+        err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
+        return await mystic.edit_text(err)
+    return
 
 
-@app.on_callback_query(filters.regex("AnonymousAdmin") & ~BANNED_USERS)
-async def anonymous_check(client, CallbackQuery):
+@app.on_callback_query(filters.regex("BrandrdAdmin") & ~BANNED_USERS)
+async def branded_admin_check(client, CallbackQuery):
     try:
         await CallbackQuery.answer(
             "» ʀᴇᴠᴇʀᴛ ʙᴀᴄᴋ ᴛᴏ ᴜsᴇʀ ᴀᴄᴄᴏᴜɴᴛ :\n\nᴏᴘᴇɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs.\n-> ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs\n-> ᴄʟɪᴄᴋ ᴏɴ ʏᴏᴜʀ ɴᴀᴍᴇ\n-> ᴜɴᴄʜᴇᴄᴋ ᴀɴᴏɴʏᴍᴏᴜs ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs.",
             show_alert=True,
         )
     except:
+        LOGGER(__name__).warning("branded_admin_check: unhandled exception", exc_info=True)
         pass
 
 
-@app.on_callback_query(filters.regex("AnonyPlaylists") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex("Playlists") & ~BANNED_USERS)
 @languageCB
 async def play_playlists_command(client, CallbackQuery, _):
     callback_data = CallbackQuery.data.strip()
@@ -568,16 +591,19 @@ async def play_playlists_command(client, CallbackQuery, _):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
         except:
+            LOGGER(__name__).warning("play_playlists_command: unhandled exception", exc_info=True)
             return
     try:
         chat_id, channel = await get_channeplayCB(_, cplay, CallbackQuery)
     except:
+        LOGGER(__name__).warning("play_playlists_command: unhandled exception", exc_info=True)
         return
     user_name = CallbackQuery.from_user.first_name
     await CallbackQuery.message.delete()
     try:
         await CallbackQuery.answer()
     except:
+        LOGGER(__name__).warning("play_playlists_command: unhandled exception", exc_info=True)
         pass
     mystic = await CallbackQuery.message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
@@ -596,26 +622,31 @@ async def play_playlists_command(client, CallbackQuery, _):
                 True,
             )
         except:
+            LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
     if ptype == "spplay":
         try:
             result, spotify_id = await Spotify.playlist(videoid)
         except:
+            LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
     if ptype == "spalbum":
         try:
             result, spotify_id = await Spotify.album(videoid)
         except:
+            LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
     if ptype == "spartist":
         try:
             result, spotify_id = await Spotify.artist(videoid)
         except:
+            LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
     if ptype == "apple":
         try:
             result, apple_id = await Apple.playlist(videoid, True)
         except:
+            LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
             return await mystic.edit_text(_["play_3"])
     try:
         await stream(
@@ -631,19 +662,12 @@ async def play_playlists_command(client, CallbackQuery, _):
             spotify=spotify,
             forceplay=ffplay,
         )
-    except FloodWait as e:
-        wait_time = int(getattr(e, "value", 0) or 0)
-        print(f"[FloodWait] stream() blocked for {wait_time}s")
-        return await safe_edit_text(
-            mystic,
-            f"⚠️ Telegram rate limit reached.\\n\\nPlease wait `{wait_time}` seconds and try again.",
-        )
     except Exception as e:
-        print(f"Error: {e}")
+        LOGGER(__name__).error("play_playlists_command: unhandled exception", exc_info=True)
         ex_type = type(e).__name__
-        err = str(e) if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-        return await safe_edit_text(mystic, err)
-    return await mystic.delete()
+        err = e if ex_type == "AssistantErr" else _["general_2"].format(f"{ex_type}: {e}")
+        return await mystic.edit_text(err)
+    return
 
 
 @app.on_callback_query(filters.regex("slider") & ~BANNED_USERS)
@@ -663,6 +687,7 @@ async def slider_queries(client, CallbackQuery, _):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
         except:
+            LOGGER(__name__).warning("slider_queries: unhandled exception", exc_info=True)
             return
     what = str(what)
     rtype = int(rtype)
@@ -674,6 +699,7 @@ async def slider_queries(client, CallbackQuery, _):
         try:
             await CallbackQuery.answer(_["playcb_2"])
         except:
+            LOGGER(__name__).warning("slider_queries: unhandled exception", exc_info=True)
             pass
         title, duration_min, thumbnail, vidid = await YouTube.slider(query, query_type)
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
@@ -695,6 +721,7 @@ async def slider_queries(client, CallbackQuery, _):
         try:
             await CallbackQuery.answer(_["playcb_2"])
         except:
+            LOGGER(__name__).warning("slider_queries: unhandled exception", exc_info=True)
             pass
         title, duration_min, thumbnail, vidid = await YouTube.slider(query, query_type)
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
