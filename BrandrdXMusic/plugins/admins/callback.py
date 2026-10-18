@@ -31,7 +31,7 @@ from BrandrdXMusic.utils.inline import (
     stream_markup,
     stream_markup2,
     stream_markup_timer,
-    stream_markup_timer2,
+
 )
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
 from BrandrdXMusic.utils.rich_stream import set_now_playing_state
