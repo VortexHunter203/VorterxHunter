@@ -1,30 +1,40 @@
 import asyncio
 
+import config
+from pyrogram.errors import MessageNotModified
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from BrandrdXMusic import YouTube, app
 from BrandrdXMusic.core.call import Hotty
+from BrandrdXMusic.logging import LOGGER
 from BrandrdXMusic.misc import SUDOERS, db
 from BrandrdXMusic.utils.database import (
+    autoplay_off,
+    autoplay_on,
     get_active_chats,
     get_lang,
     get_upvote_count,
     is_active_chat,
+    is_autoplay,
     is_music_playing,
     is_nonadmin_chat,
     music_off,
     music_on,
     set_loop,
 )
+from BrandrdXMusic.utils.decorators.admins import ActualAdminCB
 from BrandrdXMusic.utils.decorators.language import languageCB
 from BrandrdXMusic.utils.formatters import seconds_to_min
 from BrandrdXMusic.utils.inline import (
     close_markup,
     stream_markup,
+    stream_markup2,
     stream_markup_timer,
+    stream_markup_timer2,
 )
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
+from BrandrdXMusic.utils.rich_stream import set_now_playing_state
 from BrandrdXMusic.utils.thumbnails import get_thumb
 from config import (
     BANNED_USERS,
@@ -88,6 +98,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                 exists = confirmer[chat_id][CallbackQuery.message.id]
                 current = db[chat_id][0]
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.edit_message_text(f"ғᴀɪʟᴇᴅ.")
             try:
                 if current["vidid"] != exists["vidid"]:
@@ -95,10 +106,12 @@ async def del_back_playlist(client, CallbackQuery, _):
                 if current["file"] != exists["file"]:
                     return await CallbackQuery.edit_message.text(_["admin_35"])
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.edit_message_text(_["admin_36"])
             try:
                 await CallbackQuery.edit_message_text(_["admin_37"].format(upvote))
             except:
+                LOGGER(__name__).warning("del_back_playlist: unhandled exception", exc_info=True)
                 pass
             command = counter
             mention = "ᴜᴘᴠᴏᴛᴇs"
@@ -182,8 +195,10 @@ async def del_back_playlist(client, CallbackQuery, _):
                     try:
                         return await Hotty.stop_stream(chat_id)
                     except:
+                        LOGGER(__name__).warning("del_back_playlist: unhandled exception", exc_info=True)
                         return
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 try:
                     await CallbackQuery.edit_message_text(
                         f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀"
@@ -196,6 +211,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                     )
                     return await Hotty.stop_stream(chat_id)
                 except:
+                    LOGGER(__name__).warning("del_back_playlist: unhandled exception", exc_info=True)
                     return
         else:
             txt = f"➻ sᴛʀᴇᴀᴍ ʀᴇ-ᴘʟᴀʏᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀"
@@ -224,10 +240,12 @@ async def del_back_playlist(client, CallbackQuery, _):
             try:
                 image = await YouTube.thumbnail(videoid, True)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 image = None
             try:
                 await Hotty.skip_stream(chat_id, link, video=status, image=image)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.message.reply_text(_["call_6"])
             button = stream_markup2(_, chat_id)
             img = await get_thumb(videoid)
@@ -256,14 +274,17 @@ async def del_back_playlist(client, CallbackQuery, _):
                     video=status,
                 )
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await mystic.edit_text(_["call_6"])
             try:
                 image = await YouTube.thumbnail(videoid, True)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 image = None
             try:
                 await Hotty.skip_stream(chat_id, file_path, video=status, image=image)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await mystic.edit_text(_["call_6"])
             button = stream_markup(_, videoid, chat_id)
             img = await get_thumb(videoid)
@@ -285,6 +306,7 @@ async def del_back_playlist(client, CallbackQuery, _):
             try:
                 await Hotty.skip_stream(chat_id, videoid, video=status)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.message.reply_text(_["call_6"])
             button = stream_markup2(_, chat_id)
             run = await CallbackQuery.message.reply_photo(
@@ -304,10 +326,12 @@ async def del_back_playlist(client, CallbackQuery, _):
                 try:
                     image = await YouTube.thumbnail(videoid, True)
                 except:
+                    LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                     image = None
             try:
                 await Hotty.skip_stream(chat_id, queued, video=status, image=image)
             except:
+                LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.message.reply_text(_["call_6"])
             if videoid == "telegram":
                 button = stream_markup2(_, chat_id)
@@ -369,49 +393,58 @@ async def markup_timer():
                 try:
                     mystic = playing[0]["markup"]
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     continue
                 try:
                     check = checker[chat_id][mystic.id]
                     if check is False:
                         continue
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     pass
                 try:
                     language = await get_lang(chat_id)
                     _ = get_string(language)
                 except:
+                    LOGGER(__name__).error("markup_timer: unhandled exception", exc_info=True)
                     _ = get_string("en")
                 try:
                     mystic = playing[0]["mystic"]
                     markup = playing[0]["markup"]
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     continue
                 try:
-                    check = wrong[chat_id][mystic.id]
+                    check = checker[chat_id][mystic.id]
                     if check is False:
                         continue
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     pass
                 try:
                     language = await get_lang(chat_id)
                     _ = get_string(language)
                 except:
+                    LOGGER(__name__).error("markup_timer: unhandled exception", exc_info=True)
                     _ = get_string("en")
                 try:
                     mystic = playing[0]["mystic"]
                     markup = playing[0]["markup"]
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     continue
                 try:
-                    check = wrong[chat_id][mystic.id]
+                    check = checker[chat_id][mystic.id]
                     if check is False:
                         continue
                 except:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     pass
                 try:
                     language = await get_lang(chat_id)
                     _ = get_string(language)
                 except:
+                    LOGGER(__name__).error("markup_timer: unhandled exception", exc_info=True)
                     _ = get_string("en")
                 try:
                     buttons = (
@@ -433,10 +466,33 @@ async def markup_timer():
                     await mystic.edit_reply_markup(
                         reply_markup=InlineKeyboardMarkup(buttons)
                     )
-                except:
+                except MessageNotModified:
+                    continue
+                except Exception:
+                    LOGGER(__name__).debug("markup_timer: skip")
                     continue
             except:
+                LOGGER(__name__).warning("markup_timer: unhandled exception", exc_info=True)
                 continue
+
+@app.on_callback_query(filters.regex(r"^nowplaying_autoplay ") & ~BANNED_USERS)
+@ActualAdminCB
+async def nowplaying_autoplay_toggle(client, CallbackQuery, _):
+    chat_id = int(CallbackQuery.data.split(None, 1)[1])
+    if await is_autoplay(chat_id):
+        await autoplay_off(chat_id)
+        toast = "Autoplay turned OFF"
+    else:
+        if not await is_active_chat(chat_id):
+            await CallbackQuery.answer(
+                "No song is currently playing. Play something first, then enable Autoplay.",
+                show_alert=True,
+            )
+            return
+        await autoplay_on(chat_id)
+        toast = "Autoplay turned ON"
+    await CallbackQuery.answer(toast, show_alert=False)
+    await set_now_playing_state(chat_id, await is_music_playing(chat_id))
 
 
 asyncio.create_task(markup_timer())
