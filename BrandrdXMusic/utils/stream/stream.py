@@ -5,13 +5,13 @@ import random
 import string
 import asyncio
 from pyrogram import client, filters
-from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 from BrandrdXMusic.utils.database import get_assistant
 import config
 from BrandrdXMusic import Apple, Resso, SoundCloud, Spotify, Telegram, YouTube, app
 from BrandrdXMusic.core.call import Hotty
+from BrandrdXMusic.logging import LOGGER
 from BrandrdXMusic.misc import SUDOERS
 from BrandrdXMusic.utils import seconds_to_min, time_to_seconds
 from BrandrdXMusic.utils.channelplay import get_channeplayCB
@@ -51,58 +51,11 @@ from BrandrdXMusic.utils.inline import (
     aq_markup,
     close_markup,
     stream_markup,
+    stream_markup2,
 )
 from BrandrdXMusic.utils.pastebin import HottyBin
 from BrandrdXMusic.utils.stream.queue import put_queue, put_queue_index
-from BrandrdXMusic.utils.thumbnails import get_thumb
-
 from py_yt import VideosSearch
-
-
-
-async def _safe_send_photo(*args, **kwargs):
-    """Send a photo with bounded FloodWait retries."""
-    max_retries = 2
-    for attempt in range(max_retries + 1):
-        try:
-            return await app.send_photo(*args, **kwargs)
-        except FloodWait as e:
-            wait_time = int(getattr(e, "value", 0) or 0)
-            print(
-                f"[FloodWait] app.send_photo blocked for {wait_time}s "
-                f"(attempt {attempt + 1}/{max_retries + 1})"
-            )
-            if attempt >= max_retries:
-                raise
-            await asyncio.sleep(wait_time)
-
-async def _safe_send_message(*args, **kwargs):
-    """Send a message with bounded FloodWait retries."""
-    max_retries = 2
-    for attempt in range(max_retries + 1):
-        try:
-            return await app.send_message(*args, **kwargs)
-        except FloodWait as e:
-            wait_time = int(getattr(e, "value", 0) or 0)
-            print(
-                f"[FloodWait] app.send_message blocked for {wait_time}s "
-                f"(attempt {attempt + 1}/{max_retries + 1})"
-            )
-            if attempt >= max_retries:
-                raise
-            await asyncio.sleep(wait_time)
-
-async def _safe_edit_text(message, text, **kwargs):
-    """Edit status message without creating another FloodWait crash."""
-    try:
-        return await message.edit_text(text, **kwargs)
-    except FloodWait as e:
-        wait_time = int(getattr(e, "value", 0) or 0)
-        print(f"[FloodWait] edit_text blocked for {wait_time}s")
-        return None
-    except Exception as e:
-        print(f"[safe_edit_text] Failed: {e}")
-        return None
 
 
 async def stream(
@@ -137,6 +90,7 @@ async def stream(
                     vidid,
                 ) = await YouTube.details(search, False if spotify else True)
             except:
+                LOGGER(__name__).warning("stream: unhandled exception", exc_info=True)
                 continue
             if str(duration_min) == "None":
                 continue
@@ -167,7 +121,8 @@ async def stream(
                         vidid, mystic, video=status, videoid=True
                     )
                 except:
-                    await _safe_edit_text(mystic, _["play_3"])
+                    LOGGER(__name__).error("stream: unhandled exception", exc_info=True)
+                    await mystic.edit_text(_["play_3"])
                 await Hotty.join_call(
                     chat_id,
                     original_chat_id,
@@ -189,7 +144,7 @@ async def stream(
                 )
                 img = await get_thumb(vidid)
                 button = stream_markup(_, vidid, chat_id)
-                run = await _safe_send_photo(
+                run = await app.send_photo(
                     original_chat_id,
                     photo=img,
                     caption=_["stream_1"].format(
@@ -206,7 +161,7 @@ async def stream(
         if count == 0:
             return
         else:
-            link = await brandedBin(msg)
+            link = await HottyBin(msg)
             lines = msg.count("\n")
             if lines >= 17:
                 car = os.linesep.join(msg.split(os.linesep)[:17])
@@ -214,7 +169,7 @@ async def stream(
                 car = msg
             carbon = await Carbon.generate(car, randint(100, 10000000))
             upl = close_markup(_)
-            return await _safe_send_photo(
+            return await app.send_photo(
                 original_chat_id,
                 photo=carbon,
                 caption=_["play_21"].format(position, link),
@@ -232,7 +187,8 @@ async def stream(
                 vidid, mystic, videoid=True, video=status
             )
         except:
-            await _safe_edit_text(mystic, _["play_3"])
+            LOGGER(__name__).error("stream: unhandled exception", exc_info=True)
+            await mystic.edit_text(_["play_3"])
         if await is_active_chat(chat_id):
             await put_queue(
                 chat_id,
@@ -248,7 +204,7 @@ async def stream(
             img = await get_thumb(vidid)
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await _safe_send_photo(
+            await app.send_photo(
                 chat_id=original_chat_id,
                 photo=img,
                 caption=_["queue_4"].format(
@@ -280,7 +236,7 @@ async def stream(
             )
             img = await get_thumb(vidid)
             button = stream_markup(_, vidid, chat_id)
-            run = await _safe_send_photo(
+            run = await app.send_photo(
                 original_chat_id,
                 photo=img,
                 caption=_["stream_1"].format(
@@ -312,7 +268,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await _safe_send_message(
+            await app.send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -334,7 +290,7 @@ async def stream(
                 forceplay=forceplay,
             )
             button = stream_markup2(_, chat_id)
-            run = await _safe_send_photo(
+            run = await app.send_photo(
                 original_chat_id,
                 photo=config.SOUNCLOUD_IMG_URL,
                 caption=_["stream_1"].format(
@@ -364,7 +320,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await _safe_send_message(
+            await app.send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -388,7 +344,7 @@ async def stream(
             if video:
                 await add_active_video_chat(chat_id)
             button = stream_markup2(_, chat_id)
-            run = await _safe_send_photo(
+            run = await app.send_photo(
                 original_chat_id,
                 photo=config.TELEGRAM_VIDEO_URL if video else config.TELEGRAM_AUDIO_URL,
                 caption=_["stream_1"].format(link, title[:23], duration_min, user_name),
@@ -417,7 +373,7 @@ async def stream(
             )
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
-            await _safe_send_message(
+            await app.send_message(
                 chat_id=original_chat_id,
                 text=_["queue_4"].format(position, title[:18], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
@@ -449,7 +405,7 @@ async def stream(
             )
             img = await get_thumb(vidid)
             button = stream_markup2(_, chat_id)
-            run = await _safe_send_photo(
+            run = await app.send_photo(
                 original_chat_id,
                 photo=img,
                 caption=_["stream_1"].format(
@@ -504,7 +460,7 @@ async def stream(
                 forceplay=forceplay,
             )
             button = stream_markup2(_, chat_id)
-            run = await _safe_send_photo(
+            run = await app.send_photo(
                 original_chat_id,
                 photo=config.STREAM_IMG_URL,
                 caption=_["stream_2"].format(user_name),
@@ -513,3 +469,30 @@ async def stream(
             db[chat_id][0]["mystic"] = run
             db[chat_id][0]["markup"] = "tg"
             await mystic.delete()
+
+
+# Function to get thumbnail by video ID
+async def get_thumb(videoid):
+    try:
+        # Search for the video using video ID
+        query = f"https://www.youtube.com/watch?v={videoid}"
+        results = VideosSearch(query, limit=1)
+        for result in (await results.next())["result"]:
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        return thumbnail
+    except Exception as e:
+        LOGGER(__name__).error("get_thumb: unhandled exception", exc_info=True)
+        return config.YOUTUBE_IMG_URL
+
+
+async def get_thumb(vidid):
+    try:
+        # Search for the video using video ID
+        query = f"https://www.youtube.com/watch?v={vidid}"
+        results = VideosSearch(query, limit=1)
+        for result in (await results.next())["result"]:
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        return thumbnail
+    except Exception as e:
+        LOGGER(__name__).error("get_thumb: unhandled exception", exc_info=True)
+        return config.YOUTUBE_IMG_URL
