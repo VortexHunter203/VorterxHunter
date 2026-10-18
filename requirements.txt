@@ -23,7 +23,6 @@ unidecode
 yt-dlp
 py-yt-search
 lexica-api==1.5.1
-SafoneAPI
 gpytranslate
 python-telegram-bot
 pycryptodome
