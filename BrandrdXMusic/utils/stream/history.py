@@ -11,4 +11,4 @@ def record_played(chat_id, video_id):
         played.remove(video_id)
     played.append(video_id)
     if len(played) > MAX_HISTORY:
-        del played[: len(played) - MAX_HISTORY]
+        del played[: len(played) - MAX_HISTORY])
