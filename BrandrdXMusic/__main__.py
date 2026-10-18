@@ -1,3 +1,4 @@
+import logging
 import asyncio
 import importlib
 from sys import argv
@@ -21,7 +22,7 @@ async def init():
         and not config.STRING4
         and not config.STRING5
     ):
-        LOGGER(__name__).error("Assistant client variables not defined, exiting...")
+        LOGGER(name).error("Assistant client variables not defined, exiting...")
         exit()
     await sudo()
     try:
