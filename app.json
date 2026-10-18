@@ -1,5 +1,5 @@
 {
-  "name": "⛦ 𝐁𝐫𝐚𝐧𝐝𝐫𝐝 𝐗 𝐌𝐮𝐬𝐢𝐜 ⛦",
+  "name": "ʙʀᴀɴᴅʀᴅxᴍᴜꜱɪᴄ",
   "description": "A Telegram Music Player Bot, written in Python with Pyrogram and Py-Tgcalls.",
   "logo": "https://te.legra.ph/file/62fa7c81c56c1ae31c844.jpg",
   "keywords": [
@@ -59,12 +59,17 @@
     },
     "API_URL": {
       "description": "Primary YouTube Stream API URL",
-      "value": "http://165.232.182.138:8000",
+      "value": "https://truemorning.up.railway.app",
       "required": true
     },
     "API_URL_FALLBACK": {
       "description": "Fallback YouTube Stream API URL",
       "value": "https://api01.shrutibots.site",
+      "required": true
+    },
+    "API_KEY_FALLBACK": {
+      "description": "Get API key from Telegram @BRANDEDKING2",
+      "value": "",
       "required": true
     }
   },
