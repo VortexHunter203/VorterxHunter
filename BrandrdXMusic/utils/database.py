@@ -19,16 +19,9 @@ onoffdb = mongodb.onoffper
 playmodedb = mongodb.playmode
 playtypedb = mongodb.playtypedb
 skipdb = mongodb.skipmode
+autoplaydb = mongodb.autoplay
 sudoersdb = mongodb.sudoers
 usersdb = mongodb.tgusersdb
-privatedb = mongodb.privatechats
-suggdb = mongodb.suggestion
-cleandb = mongodb.cleanmode
-queriesdb = mongodb.queries
-userdb = mongodb.userstats
-vcloggerdb = mongodb.vclogger
-chatsdbc = mongodb.chatsc  # for clone
-usersdbc = mongodb.tgusersdbc  # for clone
 
 # Shifting to memory [mongo sucks often]
 active = []
@@ -45,13 +38,7 @@ pause = {}
 playmode = {}
 playtype = {}
 skipmode = {}
-privatechats = {}
-cleanmode = []
-suggestion = {}
-mute = {}
-audio = {}
-video = {}
-vclogger = {}
+autoplay = {}
 
 # Total Queries on bot
 
@@ -871,35 +858,6 @@ async def cleanmode_on(chat_id: int):
         pass
 
 
-# VC Logger
-async def is_vclogger_on(chat_id: int) -> bool:
-    mode = vclogger.get(chat_id)
-    if not mode:
-        user = await vcloggerdb.find_one({"chat_id": chat_id})
-        if not user:
-            vclogger[chat_id] = False
-            return False
-        vclogger[chat_id] = True
-        return True
-    return mode
-
-
-async def vclogger_on(chat_id: int):
-    vclogger[chat_id] = True
-    user = await vcloggerdb.find_one({"chat_id": chat_id})
-    if user:
-        return
-    return await vcloggerdb.insert_one({"chat_id": chat_id})
-
-
-async def vclogger_off(chat_id: int):
-    vclogger[chat_id] = False
-    user = await vcloggerdb.find_one({"chat_id": chat_id})
-    if not user:
-        return
-    return await vcloggerdb.delete_one({"chat_id": chat_id})
-
-
 # Audio Video Limit
 
 """
@@ -1010,3 +968,42 @@ async def add_served_chat_clone(chat_id: int):
 
 async def delete_served_chat_clone(chat_id: int):
     await chatsdbc.delete_one({"chat_id": chat_id})
+
+# =========================================================
+# AUTO PLAY DATABASE
+# =========================================================
+
+async def is_autoplay(chat_id: int) -> bool:
+    """Check whether Auto Play is enabled for a group."""
+    if chat_id in autoplay:
+        return autoplay[chat_id]
+
+    data = await autoplaydb.find_one({"chat_id": chat_id})
+
+    if data is None:
+        autoplay[chat_id] = False
+        return False
+
+    enabled = bool(data.get("enabled", True))
+    autoplay[chat_id] = enabled
+    return enabled
+
+
+async def autoplay_on(chat_id: int):
+    """Enable Auto Play and save the setting in MongoDB."""
+    await autoplaydb.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"enabled": True}},
+        upsert=True,
+    )
+    autoplay[chat_id] = True
+
+
+async def autoplay_off(chat_id: int):
+    """Disable Auto Play and save the setting in MongoDB."""
+    await autoplaydb.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"enabled": False}},
+        upsert=True,
+    )
+    autoplay[chat_id] = False
