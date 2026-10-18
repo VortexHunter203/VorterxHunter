@@ -1,6 +1,5 @@
-from pykeyboard import InlineKeyboard
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.database import get_lang, set_lang
@@ -10,26 +9,24 @@ from strings import get_string, languages_present
 
 
 def lanuages_keyboard(_):
-    keyboard = InlineKeyboard(row_width=2)
-    keyboard.add(
-        *[
-            (
-                InlineKeyboardButton(
-                    text=languages_present[i],
-                    callback_data=f"languages:{i}",
-                )
-            )
-            for i in languages_present
+    buttons = [
+        InlineKeyboardButton(
+            text=languages_present[i],
+            callback_data=f"languages:{i}",
+        )
+        for i in languages_present
+    ]
+    keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                text=_["BACK_BUTTON"],
+                callback_data="settingsback_helper",
+            ),
+            InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
         ]
     )
-    keyboard.row(
-        InlineKeyboardButton(
-            text=_["BACK_BUTTON"],
-            callback_data=f"settingsback_helper",
-        ),
-        InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data=f"close"),
-    )
-    return keyboard
+    return InlineKeyboardMarkup(keyboard)
 
 
 @app.on_message(filters.command(["lang", "setlang", "language"]) & ~BANNED_USERS)
