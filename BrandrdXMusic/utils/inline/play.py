@@ -1,7 +1,8 @@
 import math
+from BrandrdXMusic import app
 
 from pyrogram.types import InlineKeyboardButton
-
+from BrandrdXMusic.utils.database import is_autoplay
 from BrandrdXMusic.utils.formatters import time_to_seconds
 
 
@@ -29,6 +30,18 @@ def track_markup(_, videoid, user_id, channel, fplay):
         ],
     ]
 
+
+# Autoplay Markup
+def autoplay_markup(chat_id, mode: bool):
+    text = "🔁 Autoplay: ON" if mode else "🔁 Autoplay: OFF"
+
+    return [
+        InlineKeyboardButton(
+            text=text,
+            callback_data=f"autoplay {chat_id}",
+        )
+    ]
+    
 
 # ============================================================
 # Stream Timer Markup
