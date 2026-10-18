@@ -116,6 +116,10 @@ def speed_converter(seconds, speed):
     return "-"
 
 
+async def with_autoplay_status(text: str, chat_id: int) -> str:
+    return text
+
+
 def check_duration(file_path):
     command = [
         "ffprobe",
