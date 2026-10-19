@@ -14,10 +14,10 @@ from BrandrdXMusic import app
 
 GOFILE_UPLOAD_URL = "https://upload.gofile.io/uploadfile"
 
-# Change this if you want a lower limit.
-# Gofile itself does not require this exact 200 MB limit,
-# but keeping a limit prevents huge Telegram downloads.
+IMGDB_UPLOAD_URL = "https://imgdb.io/api/v1/upload"
+
 MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
+MAX_IMAGE_SIZE = 16 * 1024 * 1024  # 16 MB
 
 
 # ============================================================
@@ -38,6 +38,151 @@ def format_size(size):
         return f"{size / (1024 * 1024):.2f} MB"
 
     return f"{size / (1024 * 1024 * 1024):.2f} GB"
+
+
+# ============================================================
+# DIRECT IMAGE UPLOADER
+# ============================================================
+
+async def upload_image_direct(file_path):
+
+    if not file_path:
+        return False, "Fɪʟᴇ ᴘᴀᴛʜ ɪs ᴇᴍᴘᴛʏ."
+
+    if not os.path.exists(file_path):
+        return False, "Fɪʟᴇ ᴅᴏᴇs ɴᴏᴛ ᴇxɪsᴛ."
+
+    file_size = os.path.getsize(file_path)
+
+    if file_size <= 0:
+        return False, "Fɪʟᴇ ɪs ᴇᴍᴘᴛʏ."
+
+    if file_size > MAX_IMAGE_SIZE:
+        return False, (
+            f"Iᴍᴀɢᴇ ɪs ᴛᴏᴏ ʟᴀʀɢᴇ.\n"
+            f"Sɪᴢᴇ: <code>{format_size(file_size)}</code>\n"
+            f"Mᴀxɪᴍᴜᴍ: <code>{format_size(MAX_IMAGE_SIZE)}</code>"
+        )
+
+    timeout = aiohttp.ClientTimeout(
+        total=180,
+        connect=30,
+        sock_connect=30,
+        sock_read=120,
+    )
+
+    try:
+
+        async with aiohttp.ClientSession(
+            timeout=timeout,
+        ) as session:
+
+            with open(file_path, "rb") as image_file:
+
+                form = aiohttp.FormData()
+
+                form.add_field(
+                    "file",
+                    image_file,
+                    filename=os.path.basename(file_path),
+                    content_type="application/octet-stream",
+                )
+
+                form.add_field("ttl", "0")
+
+                async with session.post(
+                    IMGDB_UPLOAD_URL,
+                    data=form,
+                ) as response:
+
+                    response_text = await response.text()
+
+                    print(
+                        f"ImgDB HTTP Status: {response.status}"
+                    )
+
+                    print(
+                        f"ImgDB Response: {response_text[:2000]}"
+                    )
+
+                    try:
+                        data = await response.json(
+                            content_type=None
+                        )
+                    except Exception:
+                        return False, (
+                            "Iᴍɢᴅʙ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
+                            "ɪɴᴠᴀʟɪᴅ ʀᴇsᴘᴏɴsᴇ.\n\n"
+                            f"<code>{response_text[:1000]}</code>"
+                        )
+
+                    if not isinstance(data, dict):
+                        return False, (
+                            "Iᴍɢᴅʙ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
+                            "ᴜɴᴋɴᴏᴡɴ ʀᴇsᴘᴏɴsᴇ."
+                        )
+
+                    if response.status not in (200, 201):
+                        return False, (
+                            f"Iᴍᴀɢᴇ Uᴘʟᴏᴀᴅ Fᴀɪʟᴇᴅ: "
+                            f"<code>{response.status}</code>\n\n"
+                            f"<code>{response_text[:1000]}</code>"
+                        )
+
+                    # Find the returned image URL.
+                    direct_link = (
+                        data.get("url")
+                        or data.get("direct_url")
+                        or data.get("directLink")
+                    )
+
+                    if not direct_link:
+                        result = data.get("data")
+
+                        if isinstance(result, dict):
+                            direct_link = (
+                                result.get("url")
+                                or result.get("direct_url")
+                                or result.get("directLink")
+                            )
+
+                    if (
+                        not isinstance(direct_link, str)
+                        or not direct_link.startswith("https://")
+                    ):
+                        return False, (
+                            "Iᴍɢᴅʙ ᴅɪᴅ ɴᴏᴛ ʀᴇᴛᴜʀɴ "
+                            "ᴀ ᴠᴀʟɪᴅ ᴅɪʀᴇᴄᴛ ɪᴍᴀɢᴇ ᴜʀʟ.\n\n"
+                            f"<code>{str(data)[:1000]}</code>"
+                        )
+
+                    return True, direct_link
+
+    except asyncio.TimeoutError:
+        return False, (
+            "Iᴍᴀɢᴇ ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n\n"
+            "Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."
+        )
+
+    except aiohttp.ClientError as e:
+        print(
+            f"ImgDB Client Error: {type(e).__name__}: {e}"
+        )
+
+        return False, (
+            "Fᴀɪʟᴇᴅ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ ᴛᴏ Iᴍɢᴅʙ.\n\n"
+            f"<code>{str(e)[:1000]}</code>"
+        )
+
+    except Exception as e:
+        print(
+            f"ImgDB Upload Error: {type(e).__name__}: {e}"
+        )
+
+        return False, (
+            "Iᴍᴀɢᴇ Uᴘʟᴏᴀᴅ Eʀʀᴏʀ.\n\n"
+            f"<code>{str(e)[:1000]}</code>"
+        )
 
 
 # ============================================================
@@ -116,21 +261,17 @@ async def upload_file(file_path):
                     )
 
                     if response.status != 200:
-
                         return False, (
                             f"Gᴏғɪʟᴇ Eʀʀᴏʀ: "
                             f"<code>{response.status}</code>\n\n"
                             f"<code>{response_text[:1000]}</code>"
                         )
 
-                    # Try JSON response
                     try:
                         data = await response.json(
                             content_type=None
                         )
-
                     except Exception:
-
                         return False, (
                             "Gᴏғɪʟᴇ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
                             "ɪɴᴠᴀʟɪᴅ ʀᴇsᴘᴏɴsᴇ.\n\n"
@@ -138,7 +279,6 @@ async def upload_file(file_path):
                         )
 
                     if not isinstance(data, dict):
-
                         return False, (
                             "Gᴏғɪʟᴇ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
                             "ᴜɴᴋɴᴏᴡɴ ʀᴇsᴘᴏɴsᴇ."
@@ -146,24 +286,9 @@ async def upload_file(file_path):
 
                     print(f"Gofile JSON: {data}")
 
-                    # ------------------------------------------------
-                    # Gofile normally returns:
-                    #
-                    # {
-                    #   "status": "ok",
-                    #   "data": {
-                    #       "downloadPage": "...",
-                    #       "guestToken": "...",
-                    #       "parentFolder": "...",
-                    #       ...
-                    #   }
-                    # }
-                    # ------------------------------------------------
-
                     status = data.get("status")
 
                     if status != "ok":
-
                         message = (
                             data.get("message")
                             or data.get("error")
@@ -178,20 +303,17 @@ async def upload_file(file_path):
                     result = data.get("data")
 
                     if not isinstance(result, dict):
-
                         return False, (
                             "Gᴏғɪʟᴇ ᴅɪᴅ ɴᴏᴛ ʀᴇᴛᴜʀɴ "
                             "ᴠᴀʟɪᴅ ғɪʟᴇ ᴅᴀᴛᴀ."
                         )
 
-                    # Download page
                     download_page = (
                         result.get("downloadPage")
                         or result.get("downloadpage")
                         or result.get("link")
                     )
 
-                    # Some Gofile responses may provide a direct link.
                     direct_link = (
                         result.get("directLink")
                         or result.get("directlink")
@@ -199,30 +321,26 @@ async def upload_file(file_path):
                         or result.get("downloadURL")
                     )
 
-                    final_url = (
-                        direct_link
-                        or download_page
-                    )
+                    # Do not claim a webpage is a direct file URL.
+                    final_url = direct_link
 
                     if not final_url:
-
                         return False, (
-                            "Gᴏғɪʟᴇ ᴜᴘʟᴏᴀᴅᴇᴅ ᴛʜᴇ ғɪʟᴇ "
-                            "ʙᴜᴛ ɴᴏ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ᴡᴀs ғᴏᴜɴᴅ.\n\n"
-                            f"<code>{str(result)[:1500]}</code>"
+                            "Gᴏғɪʟᴇ ᴜᴘʟᴏᴀᴅᴇᴅ ᴛʜᴇ ғɪʟᴇ, "
+                            "ʙᴜᴛ ɴᴏ ᴅɪʀᴇᴄᴛ ғɪʟᴇ ᴜʀʟ ᴡᴀs ʀᴇᴛᴜʀɴᴇᴅ.\n\n"
+                            f"Dᴏᴡɴʟᴏᴀᴅ ᴘᴀɢᴇ: "
+                            f"<code>{download_page or 'Not provided'}</code>"
                         )
 
                     return True, final_url
 
     except asyncio.TimeoutError:
-
         return False, (
             "Gᴏғɪʟᴇ ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n\n"
             "Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."
         )
 
     except aiohttp.ClientError as e:
-
         print(
             f"Gofile Client Error: {type(e).__name__}: {e}"
         )
@@ -233,7 +351,6 @@ async def upload_file(file_path):
         )
 
     except Exception as e:
-
         print(
             f"Gofile Upload Error: "
             f"{type(e).__name__}: {e}"
@@ -258,10 +375,6 @@ async def get_link_group(client, message):
 
     media = message.reply_to_message
 
-    # ========================================================
-    # CHECK REPLY
-    # ========================================================
-
     if not media:
 
         return await message.reply_text(
@@ -273,42 +386,30 @@ async def get_link_group(client, message):
             "</blockquote>",
         )
 
-    # ========================================================
-    # DETECT FILE
-    # ========================================================
-
     file_size = 0
 
     if media.photo:
-
         file_size = media.photo.file_size or 0
 
     elif media.video:
-
         file_size = media.video.file_size or 0
 
     elif media.document:
-
         file_size = media.document.file_size or 0
 
     elif media.audio:
-
         file_size = media.audio.file_size or 0
 
     elif media.animation:
-
         file_size = media.animation.file_size or 0
 
     elif media.voice:
-
         file_size = media.voice.file_size or 0
 
     elif media.video_note:
-
         file_size = media.video_note.file_size or 0
 
     else:
-
         return await message.reply_text(
             "<blockquote>"
             "<b>❌ Uɴsᴜᴘᴘᴏʀᴛᴇᴅ Mᴇᴅɪᴀ</b>\n\n"
@@ -317,12 +418,7 @@ async def get_link_group(client, message):
             "</blockquote>",
         )
 
-    # ========================================================
-    # SIZE CHECK
-    # ========================================================
-
     if file_size > MAX_FILE_SIZE:
-
         return await message.reply_text(
             "<blockquote>"
             "<b>❌ Fɪʟᴇ Tᴏᴏ Lᴀʀɢᴇ</b>\n\n"
@@ -332,10 +428,6 @@ async def get_link_group(client, message):
             f"<code>{format_size(MAX_FILE_SIZE)}</code>"
             "</blockquote>",
         )
-
-    # ========================================================
-    # STATUS
-    # ========================================================
 
     status = await message.reply_text(
         "<blockquote>"
@@ -347,10 +439,6 @@ async def get_link_group(client, message):
     local_path = None
 
     try:
-
-        # ====================================================
-        # DOWNLOAD FROM TELEGRAM
-        # ====================================================
 
         last_update = 0
 
@@ -371,7 +459,6 @@ async def get_link_group(client, message):
             percent = current * 100 / total
 
             try:
-
                 await status.edit_text(
                     "<blockquote>"
                     "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ...</b>\n\n"
@@ -382,7 +469,6 @@ async def get_link_group(client, message):
                     f"{format_size(total)}</code>"
                     "</blockquote>",
                 )
-
             except Exception:
                 pass
 
@@ -400,26 +486,25 @@ async def get_link_group(client, message):
                 "Downloaded file was not found."
             )
 
-        # ====================================================
-        # UPLOAD
-        # ====================================================
-
         await status.edit_text(
             "<blockquote>"
-            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Gᴏғɪʟᴇ...</b>\n\n"
+            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Fɪʟᴇ...</b>\n\n"
             f"<b>Fɪʟᴇ:</b> "
             f"<code>{format_size(os.path.getsize(local_path))}</code>\n\n"
-            "<i>Dᴏ ɴᴏᴛ sᴇɴᴅ ᴀɴᴏᴛʜᴇʀ ᴄᴏᴍᴍᴀɴᴅ ᴜɴᴛɪʟ ᴜᴘʟᴏᴀᴅ ɪs ғɪɴɪsʜᴇᴅ.</i>"
+            "<i>Pʟᴇᴀsᴇ Wᴀɪᴛ...</i>"
             "</blockquote>",
         )
 
-        success, result = await upload_file(
-            local_path
-        )
-
-        # ====================================================
-        # SUCCESS
-        # ====================================================
+        # Photos use direct image hosting.
+        # Other media continue using Gofile.
+        if media.photo:
+            success, result = await upload_image_direct(
+                local_path
+            )
+        else:
+            success, result = await upload_file(
+                local_path
+            )
 
         if success:
 
@@ -441,19 +526,16 @@ async def get_link_group(client, message):
                 "<b>✅ Uᴘʟᴏᴀᴅ Sᴜᴄᴄᴇssғᴜʟ</b>\n\n"
                 f"<b>📦 Fɪʟᴇ Sɪᴢᴇ:</b> "
                 f"<code>{format_size(file_size)}</code>\n\n"
-                f"<b>🔗 Lɪɴᴋ:</b>\n"
+                f"<b>🔗 Dɪʀᴇᴄᴛ Lɪɴᴋ:</b>\n"
                 f"<code>{upload_url}</code>\n\n"
-                "<i>Cʀᴇᴀᴛᴇ Bʏ [Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ](https://t.me/Systumm_music_bot?startgroup)</i>"
+                "<i>Cʀᴇᴀᴛᴇ Bʏ "
+                "[Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ]"
+                "(https://t.me/Systumm_music_bot?startgroup)</i>"
                 "</blockquote>",
                 reply_markup=keyboard,
             )
 
-        # ====================================================
-        # FAILURE
-        # ====================================================
-
         else:
-
             await status.edit_text(
                 "<blockquote>"
                 "<b>❌ Uᴘʟᴏᴀᴅ Fᴀɪʟᴇᴅ</b>\n\n"
@@ -470,7 +552,6 @@ async def get_link_group(client, message):
         )
 
         try:
-
             await status.edit_text(
                 "<blockquote>"
                 "<b>❌ Pʀᴏᴄᴇssɪɴɢ Eʀʀᴏʀ</b>\n\n"
@@ -478,25 +559,16 @@ async def get_link_group(client, message):
                 f"<code>{str(e)[:1500]}</code>"
                 "</blockquote>",
             )
-
         except Exception:
             pass
 
     finally:
 
-        # ====================================================
-        # DELETE TEMP FILE
-        # ====================================================
-
         if local_path:
-
             try:
-
                 if os.path.exists(local_path):
                     os.remove(local_path)
-
             except Exception as e:
-
                 print(
                     f"Cleanup Error: {e}"
                 )
@@ -535,8 +607,11 @@ Tʜᴇɴ sᴇɴᴅ:
 
 <code>/tgm</code>
 
-<b>Uᴘʟᴏᴀᴅ Hᴏsᴛ:</b>
-Gᴏғɪʟᴇ
+<b>Pʜᴏᴛᴏ Hᴏsᴛ:</b>
+ImgDB (direct image URL)
+
+<b>Oᴛʜᴇʀ Fɪʟᴇs:</b>
+Gofile
 
 <b>Bᴏᴛ Lɪᴍɪᴛ:</b>
 <code>200 MB</code>
