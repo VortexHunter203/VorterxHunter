@@ -1007,3 +1007,28 @@ async def autoplay_off(chat_id: int):
         upsert=True,
     )
     autoplay[chat_id] = False
+
+# VC LOGGER DATABASE
+
+async def is_vclogger_on(chat_id: int):
+    collection = mongodb.vclogger
+    data = await collection.find_one({"chat_id": chat_id})
+    return bool(data and data.get("enabled", False))
+
+
+async def vclogger_on(chat_id: int):
+    collection = mongodb.vclogger
+    await collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"enabled": True}},
+        upsert=True,
+    )
+
+
+async def vclogger_off(chat_id: int):
+    collection = mongodb.vclogger
+    await collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"enabled": False}},
+        upsert=True,
+    )
