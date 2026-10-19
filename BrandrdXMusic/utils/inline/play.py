@@ -1,9 +1,13 @@
 import math
 from BrandrdXMusic import app
 
+from pyrogram.enums import ButtonStyle
 from pyrogram.types import InlineKeyboardButton
 from BrandrdXMusic.utils.database import is_autoplay
 from BrandrdXMusic.utils.formatters import time_to_seconds
+
+
+COLORS = (ButtonStyle.PRIMARY, ButtonStyle.SUCCESS, ButtonStyle.DANGER)
 
 
 # ============================================================
@@ -16,16 +20,19 @@ def track_markup(_, videoid, user_id, channel, fplay):
             InlineKeyboardButton(
                 text=_["P_B_1"],
                 callback_data=f"MusicStream {videoid}|{user_id}|a|{channel}|{fplay}",
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text=_["P_B_2"],
                 callback_data=f"MusicStream {videoid}|{user_id}|v|{channel}|{fplay}",
+                style=COLORS[1],
             ),
         ],
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data=f"forceclose {videoid}|{user_id}",
+                style=COLORS[2],
             )
         ],
     ]
@@ -39,9 +46,10 @@ def autoplay_markup(chat_id, mode: bool):
         InlineKeyboardButton(
             text=text,
             callback_data=f"autoplay {chat_id}",
+            style=COLORS[1] if mode else COLORS[2],
         )
     ]
-    
+
 
 # ============================================================
 # Stream Timer Markup
@@ -81,35 +89,42 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
             InlineKeyboardButton(
                 text=f"{played} {bar} {dur}",
                 callback_data="GetTimer",
+                style=COLORS[0],
             )
         ],
         [
             InlineKeyboardButton(
                 text="▶️",
                 callback_data=f"ADMIN Resume|{chat_id}",
+                style=COLORS[1],
             ),
             InlineKeyboardButton(
                 text="⏸️",
                 callback_data=f"ADMIN Pause|{chat_id}",
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text="🔄",
                 callback_data=f"ADMIN Replay|{chat_id}",
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text="⏭️",
                 callback_data=f"ADMIN Skip|{chat_id}",
+                style=COLORS[1],
             ),
             InlineKeyboardButton(
                 text="⏹️",
                 callback_data=f"ADMIN Stop|{chat_id}",
+                style=COLORS[2],
             ),
         ],
-        
+
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data="close",
+                style=COLORS[2],
             )
         ],
     ]
@@ -125,34 +140,41 @@ def stream_markup(_, videoid, chat_id):
             InlineKeyboardButton(
                 text="▶️",
                 callback_data=f"ADMIN Resume|{chat_id}",
+                style=COLORS[1],
             ),
             InlineKeyboardButton(
                 text="⏸️",
                 callback_data=f"ADMIN Pause|{chat_id}",
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text="🔄",
                 callback_data=f"ADMIN Replay|{chat_id}",
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text="⏭️",
                 callback_data=f"ADMIN Skip|{chat_id}",
+                style=COLORS[1],
             ),
             InlineKeyboardButton(
                 text="⏹️",
                 callback_data=f"ADMIN Stop|{chat_id}",
+                style=COLORS[2],
             ),
         ],
         [
             InlineKeyboardButton(
                 text="ᴏᴡɴᴇʀ",
                 url="https://t.me/BRANDEDKING8",
+                style=COLORS[0],
             )
         ],
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data="close",
+                style=COLORS[2],
             )
         ],
     ]
@@ -182,18 +204,21 @@ def playlist_markup(_, videoid, user_id, ptype, channel, fplay):
                 callback_data=(
                     f"Playlists {videoid}|{user_id}|{ptype}|a|{channel}|{fplay}"
                 ),
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text=_["P_B_2"],
                 callback_data=(
                     f"Playlists {videoid}|{user_id}|{ptype}|v|{channel}|{fplay}"
                 ),
+                style=COLORS[1],
             ),
         ],
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data=f"forceclose {videoid}|{user_id}",
+                style=COLORS[2],
             )
         ],
     ]
@@ -211,12 +236,14 @@ def livestream_markup(_, videoid, user_id, mode, channel, fplay):
                 callback_data=(
                     f"LiveStream {videoid}|{user_id}|{mode}|{channel}|{fplay}"
                 ),
+                style=COLORS[1],
             )
         ],
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data=f"forceclose {videoid}|{user_id}",
+                style=COLORS[2],
             )
         ],
     ]
@@ -236,12 +263,14 @@ def slider_markup(_, videoid, user_id, query, query_type, channel, fplay):
                 callback_data=(
                     f"MusicStream {videoid}|{user_id}|a|{channel}|{fplay}"
                 ),
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text=_["P_B_2"],
                 callback_data=(
                     f"MusicStream {videoid}|{user_id}|v|{channel}|{fplay}"
                 ),
+                style=COLORS[1],
             ),
         ],
         [
@@ -250,16 +279,19 @@ def slider_markup(_, videoid, user_id, query, query_type, channel, fplay):
                 callback_data=(
                     f"slider B|{query_type}|{query}|{user_id}|{channel}|{fplay}"
                 ),
+                style=COLORS[0],
             ),
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
                 callback_data=f"forceclose {videoid}|{user_id}",
+                style=COLORS[2],
             ),
             InlineKeyboardButton(
                 text="◀️",
                 callback_data=(
                     f"slider F|{query_type}|{query}|{user_id}|{channel}|{fplay}"
                 ),
+                style=COLORS[1],
             ),
         ],
     ]
