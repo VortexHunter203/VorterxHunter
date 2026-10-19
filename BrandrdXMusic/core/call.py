@@ -262,14 +262,31 @@ class Call(PyTgCalls):
         assistant = await group_assistant(self, chat_id)
         await assistant.resume(chat_id)
 
-    async def stop_stream(self, chat_id: int):
+    
+async def stop_stream(self, chat_id: int):
         assistant = await group_assistant(self, chat_id)
+
         try:
             await _clear_(chat_id)
-            await assistant.leave_call(chat_id)
+
         except Exception:
-            LOGGER(__name__).warning("stop_stream: unhandled exception", exc_info=True)
+            LOGGER(__name__).warning(
+                "stop_stream: database cleanup failed",
+                exc_info=True,
+            )
+
+        try:
+            await assistant.leave_call(chat_id)
+
+        except NotInCallError:
             pass
+
+        except Exception:
+            LOGGER(__name__).warning(
+                "stop_stream: unhandled exception",
+                exc_info=True,
+            )
+
 
     
 async def stop_stream_force(self, chat_id: int):
