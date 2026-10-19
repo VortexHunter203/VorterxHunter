@@ -5,11 +5,7 @@ from pyrogram import enums, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from pytgcalls.types import (
-    JoinedGroupCallParticipant,
-    LeftGroupCallParticipant,
-    Update,
-)
+from pytgcalls.types import Update
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.database import (
