@@ -446,7 +446,6 @@ async def get_link_group(client, message):
                 "<i>Cʀᴇᴀᴛᴇ Bʏ [Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ](https://t.me/Systumm_music_bot?startgroup)</i>"
                 "</blockquote>",
                 reply_markup=keyboard,
-                disable_web_page_preview=True,
             )
 
         # ====================================================
