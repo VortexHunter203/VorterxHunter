@@ -8,8 +8,7 @@ from pyrogram.errors import (
     ChannelPrivate,
     PeerIdInvalid,
     UserNotParticipant,
-):
-    pass
+)
 
 from pyrogram.types import Message
 
