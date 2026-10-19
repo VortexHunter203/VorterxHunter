@@ -5,7 +5,7 @@ from html import escape
 from pyrogram import enums, filters
 from pyrogram.types import Message
 
-from config import LOGGER_ID as LOG_GROUP_ID
+from config import LOGGER_ID
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.database import (
