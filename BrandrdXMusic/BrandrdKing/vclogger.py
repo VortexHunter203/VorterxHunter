@@ -136,7 +136,7 @@ async def _vc_join_keyboard(chat_id):
 
 # VC JOIN / LEFT LOGGER
 
-async def participants_change_handler(_, update: Update):
+async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
     try:
         if not isinstance(
             update,
@@ -372,6 +372,12 @@ def register_vclogger(call):
         GroupCallParticipant.Action.JOINED
         | GroupCallParticipant.Action.LEFT
     )
+
+    for assistant in assistants:
+        assistant.add_handler(
+            participants_change_handler,
+            participant_filter,
+        )
 
     for assistant in assistants:
         assistant.add_handler(
