@@ -798,4 +798,6 @@ class Call(PyTgCalls):
             client.add_handler(stream_end_handler, stream_end_filter)
 
 
+        register_vclogger(self)
+
 Hotty = Call()
