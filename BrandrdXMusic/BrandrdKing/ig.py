@@ -1,9 +1,16 @@
 import os
+import sys
 import asyncio
 import tempfile
+import shutil
+import logging
+from urllib.parse import urlparse
+from html import escape
 
 from pyrogram import filters
 from BrandrdXMusic import app
+
+logger = logging.getLogger(__name__)
 
 
 @app.on_message(filters.command(["ig", "instagram", "reel"]))
@@ -18,11 +25,9 @@ async def download_instagram_video(client, message):
         return
 
     url = message.command[1].strip()
-
-    if not (
-        "instagram.com/" in url
-        or "www.instagram.com/" in url
-        or "instagr.am/" in url
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https", "http") or (parsed.hostname or "").lower() not in (
+        "instagram.com", "www.instagram.com", "m.instagram.com", "instagr.am", "www.instagr.am"
     ):
         await message.reply_text(
             "<blockquote>"
@@ -41,6 +46,7 @@ async def download_instagram_video(client, message):
 
     temp_dir = tempfile.mkdtemp(prefix="instagram_")
     output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
+    process = None
 
     try:
         await processing.edit_text(
@@ -51,158 +57,40 @@ async def download_instagram_video(client, message):
         )
 
         process = await asyncio.create_subprocess_exec(
-            "yt-dlp",
+            sys.executable, "-m", "yt_dlp",
             "--no-playlist",
             "--no-warnings",
+            "--no-progress",
             "--restrict-filenames",
-            "-f",
-            "best[ext=mp4]/best",
-            "-o",
-            output_template,
+            "--socket-timeout", "30",
+            "--retries", "3",
+            "--fragment-retries", "3",
+            "-f", "bv*+ba/b",
+            "--merge-output-format", "mp4",
+            "-o", output_template,
             url,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
 
-        stdout, stderr = await process.communicate()
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.communicate()
+            await processing.edit_text(
+                "<blockquote><b>❌ Dᴏᴡɴʟᴏᴀᴅ Tɪᴍᴇᴏᴜᴛ</b>\n\n"
+                "Iɴsᴛᴀɢʀᴀᴍ ᴅɪᴅ ɴᴏᴛ ʀᴇsᴘᴏɴᴅ ɪɴ ᴛɪᴍᴇ. Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."
+                "</blockquote>",
+            )
+            return
 
-        error_output = stderr.decode(
-            "utf-8",
-            errors="ignore",
-        )
+        error_output = stderr.decode("utf-8", errors="replace")
+        output_text = stdout.decode("utf-8", errors="replace")
 
         if process.returncode != 0:
-            print("Instagram yt-dlp error:")
-            print(error_output[:4000])
-
-            error_lower = error_output.lower()
-
-            if (
-                "login required" in error_lower
-                or "login" in error_lower
-            ):
-                await processing.edit_text(
-                    "<blockquote>"
-                    "<b>❌ Lᴏɢɪɴ Rᴇǫᴜɪʀᴇᴅ</b>\n\n"
-                    "Tʜɪs Iɴsᴛᴀɢʀᴀᴍ Cᴏɴᴛᴇɴᴛ Rᴇǫᴜɪʀᴇs Lᴏɢɪɴ."
-                    "</blockquote>",
-                )
-
-            elif "private" in error_lower:
-                await processing.edit_text(
-                    "<blockquote>"
-                    "<b>❌ Pʀɪᴠᴀᴛᴇ Cᴏɴᴛᴇɴᴛ</b>\n\n"
-                    "Pʀɪᴠᴀᴛᴇ Iɴsᴛᴀɢʀᴀᴍ Cᴏɴᴛᴇɴᴛ Cᴀɴɴᴏᴛ Bᴇ Dᴏᴡɴʟᴏᴀᴅᴇᴅ."
-                    "</blockquote>",
-                )
-
-            elif "not found" in error_lower:
-                await processing.edit_text(
-                    "<blockquote>"
-                    "<b>❌ Vɪᴅᴇᴏ Nᴏᴛ Fᴏᴜɴᴅ</b>\n\n"
-                    "Tʜᴇ Iɴsᴛᴀɢʀᴀᴍ Vɪᴅᴇᴏ Cᴏᴜʟᴅ Nᴏᴛ Bᴇ Fᴏᴜɴᴅ."
-                    "</blockquote>",
-                )
-
-            else:
-                await processing.edit_text(
-                    "<blockquote>"
-                    "<b>❌ Fᴀɪʟᴇᴅ Tᴏ Dᴏᴡɴʟᴏᴀᴅ</b>\n\n"
-                    "Tʜᴇ Iɴsᴛᴀɢʀᴀᴍ Vɪᴅᴇᴏ Cᴏᴜʟᴅ Nᴏᴛ Bᴇ Dᴏᴡɴʟᴏᴀᴅᴇᴅ."
-                    "</blockquote>",
-                )
-
-            return
-
-        downloaded_file = None
-
-        for filename in os.listdir(temp_dir):
-            filepath = os.path.join(temp_dir, filename)
-
-            if os.path.isfile(filepath):
-                downloaded_file = filepath
-                break
-
-        if not downloaded_file:
-            await processing.edit_text(
-                "<blockquote>"
-                "<b>❌ Vɪᴅᴇᴏ Fɪʟᴇ Nᴏᴛ Fᴏᴜɴᴅ</b>\n\n"
-                "Tʜᴇ Dᴏᴡɴʟᴏᴀᴅ Fᴀɪʟᴇ Cᴏᴜʟᴅ Nᴏᴛ Bᴇ Fᴏᴜɴᴅ."
-                "</blockquote>",
-            )
-            return
-
-        file_size = os.path.getsize(downloaded_file)
-
-        if file_size == 0:
-            await processing.edit_text(
-                "<blockquote>"
-                "<b>❌ Eᴍᴘᴛʏ Vɪᴅᴇᴏ Fɪʟᴇ</b>\n\n"
-                "Tʜᴇ Dᴏᴡɴʟᴏᴀᴅᴇᴅ Fɪʟᴇ Wᴀs Eᴍᴘᴛʏ."
-                "</blockquote>",
-            )
-            return
-
-        await processing.edit_text(
-            "<blockquote>"
-            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Tᴇʟᴇɢʀᴀᴍ...</b>\n\n"
-            "Pʟᴇᴀsᴇ Wᴀɪᴛ..."
-            "</blockquote>",
-        )
-
-        await client.send_video(
-            chat_id=message.chat.id,
-            video=downloaded_file,
-            caption=(
-                "<blockquote>"
-                "<b>🎬 Iɴsᴛᴀɢʀᴀᴍ Vɪᴅᴇᴏ</b>\n\n"
-                "Dᴏᴡɴʟᴏᴀᴅᴇᴅ Bʏ <b>[Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ](https://t.me/Systumm_music_bot)</b>"
-                "</blockquote>"
-            ),
-            supports_streaming=True,
-        )
-
-        await processing.delete()
-
-    except FileNotFoundError:
-        print("yt-dlp is not installed or not available in PATH.")
-
-        await processing.edit_text(
-            "<blockquote>"
-            "<b>❌ yt-dlp Nᴏᴛ Fᴏᴜɴᴅ</b>\n\n"
-            "Pʟᴇᴀsᴇ Aᴅᴅ <code>yt-dlp</code> Tᴏ Yᴏᴜʀ requirements.txt."
-            "</blockquote>",
-        )
-
-    except Exception as e:
-        print(f"Instagram Downloader Error: {e}")
-
-        try:
-            await processing.edit_text(
-                "<blockquote>"
-                "<b>❌ Sᴏᴍᴇᴛʜɪɴɢ Wᴇɴᴛ Wʀᴏɴɢ</b>\n\n"
-                "Uɴᴀʙʟᴇ Tᴏ Dᴏᴡɴʟᴏᴀᴅ Tʜɪs Iɴsᴛᴀɢʀᴀᴍ Vɪᴅᴇᴏ."
-                "</blockquote>",
-            )
-        except Exception:
-            pass
-
-    finally:
-        try:
-            if os.path.exists(temp_dir):
-                for filename in os.listdir(temp_dir):
-                    filepath = os.path.join(temp_dir, filename)
-
-                    try:
-                        if os.path.isfile(filepath):
-                            os.remove(filepath)
-                    except Exception:
-                        pass
-
-                try:
-                    os.rmdir(temp_dir)
-                except Exception:
-                    pass
-
-        except Exception as e:
-            print(f"Cleanup Error: {e}")
+            logger.error("Instagram yt-dlp failed (code %s): %s %s", process.returncode,
+                         error_output[-3000:], output_text[-1000:])
+            error_lower = (error_output + output_text).lower()
+            if any(term in error_lower for term in ("login required", "login to", "sign in", "cookies")):
+                title = "❌ Lᴏɢɪɴ Rᴇǫᴜɪʀᴇᴅ"
