@@ -45,19 +45,18 @@ async def style_buttons(c, m, cb=False):
         ],
         [InlineKeyboardButton("ɴᴇxᴛ ➻", callback_data="nxt")],
     ]
+    
     if not cb:
         text = m.text.split(None, 1)
 
         if len(text) < 2 or not text[1].strip():
             return await m.reply_text(
                 "Please provide some text.\n\nExample: /font Branded King",
-                quote=True,
             )
 
         await m.reply_text(
             text=text[1],
             reply_markup=InlineKeyboardMarkup(buttons),
-            quote=True,
         )
     else:
         await m.answer()
