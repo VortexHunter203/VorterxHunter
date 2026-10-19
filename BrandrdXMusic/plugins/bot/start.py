@@ -49,7 +49,7 @@ async def start_pm(client, message: Message, _):
                 effect_id=effect_id,
             )
 
-                if name[0:3] == "sud":
+        if name[0:3] == "sud":
             await sudoers_list(client=client, message=message, _=_)
             if await is_on_off(2):
                 link = f"tg://user?id={message.from_user.id}"
@@ -114,14 +114,15 @@ async def start_pm(client, message: Message, _):
 
             if await is_on_off(2):
                 link = f"tg://user?id={message.from_user.id}"
+
                 return await app.send_message(
                     chat_id=config.LOGGER_ID,
                     text=(
                         "<blockquote>"
                         f"👤 {message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴄʜᴇᴄᴋ <b>ᴛʀᴀᴄᴋ ɪɴғᴏʀᴍᴀᴛɪᴏɴ</b>.\n\n"
                         f"🆔 <b>ᴜsᴇʀ ɪᴅ :</b> <code>{message.from_user.id}</code>\n"
-                        f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username}"
-                        f"👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>'
+                        f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username or 'None'}\n"
+                        f'👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>'
                         "</blockquote>"
                     ),
                 )
@@ -139,15 +140,16 @@ async def start_pm(client, message: Message, _):
         )
 
         if await is_on_off(2):
-           link = f"tg://user?id={message.from_user.id}"
+            link = f"tg://user?id={message.from_user.id}"
+
             return await app.send_message(
                 chat_id=config.LOGGER_ID,
                 text=(
                     "<blockquote>"
                     f"👤 {message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ.\n\n"
                     f"🆔 <b>ᴜsᴇʀ ɪᴅ :</b> <code>{message.from_user.id}</code>\n"
-                    f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username}"
-                    f"👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>'
+                    f"🔗 <b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username or 'None'}\n"
+                    f'👤 <b>ᴘʀᴏғɪʟᴇ :</b> <a href="{link}">ᴠɪᴇᴡ ᴜsᴇʀ</a>'
                     "</blockquote>"
                 ),
             )
