@@ -7,6 +7,7 @@ from typing import Union
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
+from pytgcalls.exceptions import NotInCallError
 from pytgcalls import PyTgCalls, filters
 from pytgcalls.exceptions import NoActiveGroupCall
 from pytgcalls.types import (
@@ -270,7 +271,8 @@ class Call(PyTgCalls):
             LOGGER(__name__).warning("stop_stream: unhandled exception", exc_info=True)
             pass
 
-    async def stop_stream_force(self, chat_id: int):
+    
+async def stop_stream_force(self, chat_id: int):
         assistants = [
             (config.STRING1, self.one),
             (config.STRING2, self.two),
@@ -283,15 +285,25 @@ class Call(PyTgCalls):
             if session:
                 try:
                     await assistant.leave_call(chat_id)
-                except Exception:
-                    LOGGER(__name__).warning("stop_stream_force: unhandled exception", exc_info=True)
+
+                except NotInCallError:
                     pass
+
+                except Exception:
+                    LOGGER(__name__).warning(
+                        "stop_stream_force: unhandled exception",
+                        exc_info=True,
+                    )
 
         try:
             await _clear_(chat_id)
+
         except Exception:
-            LOGGER(__name__).warning("stop_stream_force: unhandled exception", exc_info=True)
-            pass
+            LOGGER(__name__).warning(
+                "stop_stream_force: database cleanup failed",
+                exc_info=True,
+            )
+
 
     async def speedup_stream(self, chat_id: int, file_path, speed, playing):
         assistant = await group_assistant(self, chat_id)
