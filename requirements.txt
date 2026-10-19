@@ -3,6 +3,7 @@ aiohttp
 asyncio
 python-whois
 dnspython
+gtts
 ffmpeg-python
 gitpython
 hachoir
