@@ -209,15 +209,7 @@ async def participants_change_handler(_, update: Update):
 # REGISTER LOGGER WITH ALL 5 ASSISTANTS
 
 def register_vclogger(call):
-    assistants = [
-        call.one,
-        call.two,
-        call.three,
-        call.four,
-        call.five,
-    ]
-
-    for assistant in assistants:
-        assistant.on_participants_change()(
-            participants_change_handler
-        )
+    LOG.warning(
+        "[VC Logger] Participant monitoring disabled: "
+        "PyTgCalls v3 requires a compatible event handler."
+    )
