@@ -8,6 +8,7 @@ from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls.exceptions import NotInCallError
+from BrandrdXMusic.BrandrdKing.vclogger import register_vclogger
 from pytgcalls import PyTgCalls, filters
 from pytgcalls.exceptions import NoActiveGroupCall
 from pytgcalls.types import (
