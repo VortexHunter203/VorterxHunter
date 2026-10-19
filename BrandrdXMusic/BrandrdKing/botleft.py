@@ -208,11 +208,7 @@ async def on_left_chat_member(client, message: Message):
                 PeerIdInvalid,
                 UserNotParticipant,
             ):
-                logger.info(
-                    "[LEFT GROUP] Assistant already absent or "
-                    "group inaccessible chat=%s",
-                    chat_id,
-                )
+                pass
 
             except Exception:
                 logger.exception(
