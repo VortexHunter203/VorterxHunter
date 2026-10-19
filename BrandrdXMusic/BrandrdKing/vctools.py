@@ -30,7 +30,7 @@ async def brah(_, msg):
 
     await msg.reply(
         f"<b><blockquote>"
-        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ\n\n"
+        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ\n"
         f"──────────\n"
         f"๏ sᴛᴀʀᴛᴇᴅ ʙʏ : {group_name}\n"
         f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
@@ -66,7 +66,7 @@ async def brah2(_, msg):
 
     await msg.reply(
         f"<b><blockquote>"
-        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ\n\n"
+        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ\n"
         f"──────────\n"
         f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
         f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
