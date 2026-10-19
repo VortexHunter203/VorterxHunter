@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from html import escape
 
 from pyrogram import enums, filters
@@ -7,10 +8,12 @@ from pyrogram.errors import FloodWait
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.branded_ban import admin_filter
 
+LOG = logging.getLogger(__name__)
+
 TAG_TASKS = {}
 TAG_STOPS = {}
 
-BATCH_SIZE = 5
+BATCH_SIZE = 1
 TAG_DELAY = 7
 MAX_FLOOD_WAIT = 120
 
@@ -69,9 +72,7 @@ async def send_batch(
     if replied:
         content = (
             "<b><blockquote>"
-            f"{usertxt}\n\n"
-            "⛔ ➥ ᴏғғ ᴛᴀɢɢɪɴɢ ʙʏ » "
-            "<code>/cancel</code>"
+            f"{usertxt}"
             "</blockquote></b>"
         )
 
@@ -81,9 +82,7 @@ async def send_batch(
         content = (
             "<b><blockquote>"
             f"✨ {escape(text)}\n\n"
-            f"{usertxt}\n\n"
-            "⛔ ➥ ᴏғғ ᴛᴀɢɢɪɴɢ ʙʏ » "
-            "<code>/cancel</code>"
+            f"{usertxt}"
             "</blockquote></b>"
         )
 
@@ -202,7 +201,7 @@ async def run_tagging(
         else:
             completed = True
 
-        # Send remaining 1–4 users.
+        # Send remaining users.
         if (
             completed
             and mentions
@@ -341,7 +340,7 @@ async def tag_all_users(_, message):
         await message.reply_text(
             "<b><blockquote>"
             "🚀 ᴛᴀɢɢɪɴɢ sᴛᴀʀᴛᴇᴅ!\n\n"
-            "👥 5 ᴜɴɪǫᴜᴇ ᴍᴇᴍʙᴇʀs ᴘᴇʀ ᴍᴇssᴀɢᴇ.\n"
+            "👤 1 ᴍᴇᴍʙᴇʀ ᴘᴇʀ ᴍᴇssᴀɢᴇ.\n"
             "⏳ ᴅᴇʟᴀʏ: 7 sᴇᴄᴏɴᴅs\n\n"
             "🛑 ᴏғғ ᴛᴀɢɢɪɴɢ » <code>/cancel</code>"
             "</blockquote></b>",
