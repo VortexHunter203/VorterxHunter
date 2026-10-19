@@ -3,15 +3,23 @@ import random
 from html import escape
 
 from pyrogram import enums, filters
+from pyrogram.errors import (
+    ChannelInvalid,
+    ChannelPrivate,
+    PeerIdInvalid,
+    UserNotParticipant,
+)
 from pyrogram.types import Message
 
 from config import LOGGER_ID
 
-from BrandrdXMusic import app
+from BrandrdXMusic import LOGGER, app
 from BrandrdXMusic.utils.database import (
     delete_served_chat,
     get_assistant,
 )
+
+logger = LOGGER("BrandrdXMusic.BrandrdKing.botleft")
 
 PHOTO = [
     "https://graph.org/file/872dc8af2a36bed43b9b6.jpg",
@@ -94,14 +102,14 @@ async def send_left_log(message: Message, bot_username: str):
 
     try:
         await app.send_photo(
-            chat_id=LOG_GROUP_ID,
+            chat_id=LOGGER_ID,
             photo=random.choice(PHOTO),
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
         )
 
     except Exception:
-        LOGGER.exception(
+        logger.exception(
             "[LEFT GROUP] Failed to send log for chat=%s",
             chat_id,
         )
@@ -109,14 +117,14 @@ async def send_left_log(message: Message, bot_username: str):
         # If the photo cannot be sent, try a text log.
         try:
             await app.send_message(
-                chat_id=LOG_GROUP_ID,
+                chat_id=LOGGER_ID,
                 text=caption,
                 parse_mode=enums.ParseMode.HTML,
                 disable_web_page_preview=True,
             )
 
         except Exception:
-            LOGGER.exception(
+            logger.exception(
                 "[LEFT GROUP] Text log also failed for chat=%s",
                 chat_id,
             )
@@ -142,7 +150,7 @@ async def on_left_chat_member(client, message: Message):
         bot_id = await get_bot_id()
 
     except Exception:
-        LOGGER.exception(
+        logger.exception(
             "[LEFT GROUP] Unable to identify bot"
         )
         return
@@ -166,7 +174,7 @@ async def on_left_chat_member(client, message: Message):
             assistant = await get_assistant(chat_id)
 
         except Exception:
-            LOGGER.exception(
+            logger.exception(
                 "[LEFT GROUP] Assistant lookup failed chat=%s",
                 chat_id,
             )
@@ -182,7 +190,7 @@ async def on_left_chat_member(client, message: Message):
             await delete_served_chat(chat_id)
 
         except Exception:
-            LOGGER.exception(
+            logger.exception(
                 "[LEFT GROUP] Database cleanup failed chat=%s",
                 chat_id,
             )
@@ -192,8 +200,20 @@ async def on_left_chat_member(client, message: Message):
             try:
                 await assistant.leave_chat(chat_id)
 
+            except (
+                ChannelInvalid,
+                ChannelPrivate,
+                PeerIdInvalid,
+                UserNotParticipant,
+            ):
+                logger.info(
+                    "[LEFT GROUP] Assistant already absent or "
+                    "group inaccessible chat=%s",
+                    chat_id,
+                )
+
             except Exception:
-                LOGGER.exception(
+                logger.exception(
                     "[LEFT GROUP] Assistant leave failed chat=%s",
                     chat_id,
                 )
@@ -202,7 +222,7 @@ async def on_left_chat_member(client, message: Message):
         raise
 
     except Exception:
-        LOGGER.exception(
+        logger.exception(
             "[LEFT GROUP] Unexpected error chat=%s",
             chat_id,
         )
