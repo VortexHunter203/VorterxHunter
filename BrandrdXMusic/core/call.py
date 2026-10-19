@@ -410,7 +410,7 @@ class Call(PyTgCalls):
         await assistant.play(chat_id, stream)
 
     async def stream_call(self, link):
-        assistant = await group_assistant(self, config.LOG_GROUP_ID)
+        assistant = await group_assistant(self, config.LOGGER_ID)
         await assistant.play(
             config.LOG_GROUP_ID,
             _video_stream(link),
