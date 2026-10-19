@@ -59,7 +59,7 @@ def get_remover_mention(message: Message) -> str:
 
 
 async def send_left_log(message: Message, bot_username: str):
-    if not LOG_GROUP_ID:
+    if not LOGGER_ID:
         return
 
     chat = message.chat
