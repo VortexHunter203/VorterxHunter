@@ -22,7 +22,7 @@ tgcrypto
 telethon
 telegraph
 unidecode
-yt-dlp
+yt-dlp==2025.10.22
 py-yt-search
 lexica-api==1.5.1
 gpytranslate
