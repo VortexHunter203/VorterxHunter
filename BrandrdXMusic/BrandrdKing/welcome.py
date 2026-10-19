@@ -144,14 +144,14 @@ async def greet_group(_, member: ChatMemberUpdated):
         caption = (
             f"<b><blockquote>"
             f"𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 {member.chat.title}\n"
-            f"➖➖➖➖➖➖➖➖➖➖\n"
+            f"➖➖➖➖➖➖➖➖\n"
             f"๏ 𝗡𝗔𝗠𝗘 ➠ {user.mention}\n"
             f"๏ 𝗜'𝗗 ➠ <code>{user.id}</code>\n"
             f"๏ 𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘 ➠ {username}\n"
             f"๏ 𝗠𝗔𝗗𝗘 𝗕𝗬 ➠ "
             f"<a href=\"https://t.me/BRANDEDKING8\">"
             f"Bʀᴀɴᴅᴇᴅ Kɪɴɢ 📿</a>\n"
-            f"➖➖➖➖➖➖➖➖➖➖"
+            f"➖➖➖➖➖➖➖➖"
             f"</blockquote></b>"
         )
 
@@ -205,11 +205,11 @@ async def bot_wel(_, message):
             log_text = (
                 f"<b><blockquote>"
                 f"📝 𝗡𝗘𝗪 𝗚𝗥𝗢𝗨𝗣\n"
-                f"➖➖➖➖➖➖➖➖➖➖\n"
+                f"➖➖➖➖➖➖➖➖\n"
                 f"𝗡𝗔𝗠𝗘: {message.chat.title}\n"
                 f"𝗜'𝗗: <code>{message.chat.id}</code>\n"
                 f"𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘: {username}\n"
-                f"➖➖➖➖➖➖➖➖➖➖"
+                f"➖➖➖➖➖➖➖➖"
                 f"</blockquote></b>"
             )
 
