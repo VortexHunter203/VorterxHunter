@@ -263,7 +263,7 @@ class Call(PyTgCalls):
         await assistant.resume(chat_id)
 
     
-async def stop_stream(self, chat_id: int):
+    async def stop_stream(self, chat_id: int):
         assistant = await group_assistant(self, chat_id)
 
         try:
@@ -289,7 +289,7 @@ async def stop_stream(self, chat_id: int):
 
 
     
-async def stop_stream_force(self, chat_id: int):
+    async def stop_stream_force(self, chat_id: int):
         assistants = [
             (config.STRING1, self.one),
             (config.STRING2, self.two),
