@@ -412,12 +412,12 @@ class Call(PyTgCalls):
     async def stream_call(self, link):
         assistant = await group_assistant(self, config.LOGGER_ID)
         await assistant.play(
-            config.LOG_GROUP_ID,
+            config.LOGGER_ID,
             _video_stream(link),
             config=GroupCallConfig(auto_start=False),
         )
         await asyncio.sleep(0.2)
-        await assistant.leave_call(config.LOG_GROUP_ID)
+        await assistant.leave_call(config.LOGGER_ID)
 
     async def join_call(
         self,
