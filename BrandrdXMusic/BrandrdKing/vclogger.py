@@ -1,8 +1,11 @@
+
 import asyncio
 import logging
+import time
 
 from pyrogram import enums, filters
 from pyrogram.enums import ChatMemberStatus
+from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from pytgcalls import filters as call_filters
@@ -21,6 +24,15 @@ from BrandrdXMusic.utils.database import (
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.WARNING)
 
+VC_EVENT_CACHE = {}
+VC_CHAT_LOCKS = {}
+VC_REGISTERED = set()
+
+VC_FLOOD_UNTIL = 0
+
+VC_DUPLICATE_DELAY = 15
+VC_SEND_DELAY = 2
+
 
 # VC LOGGER ENABLE / DISABLE COMMAND
 
@@ -29,8 +41,12 @@ async def vclogger_command(client, message):
     chat_id = message.chat.id
 
     try:
+        if not message.from_user:
+            return
+
         member = await client.get_chat_member(
-            chat_id, message.from_user.id
+            chat_id,
+            message.from_user.id,
         )
 
         if member.status not in (
@@ -84,6 +100,9 @@ async def vclogger_command(client, message):
             parse_mode=enums.ParseMode.HTML,
         )
 
+    except asyncio.CancelledError:
+        raise
+
     except Exception:
         LOG.exception("[VC Logger] Command failed")
 
@@ -94,6 +113,7 @@ async def vclogger_mention(user_id: int):
     try:
         user = await app.get_users(user_id)
         return user.mention
+
     except Exception:
         return f"<a href='tg://user?id={user_id}'>ᴜsᴇʀ</a>"
 
@@ -104,8 +124,18 @@ async def _vc_delete_later(message):
     try:
         await asyncio.sleep(5)
         await message.delete()
+
     except asyncio.CancelledError:
         raise
+
+    except FloodWait as error:
+        await asyncio.sleep(int(error.value) + 1)
+
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
     except Exception:
         pass
 
@@ -134,88 +164,11 @@ async def _vc_join_keyboard(chat_id):
         return None
 
 
-# VC JOIN / LEFT LOGGER
-
-async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
-    try:
-        if not isinstance(
-            update,
-            (JoinedGroupCallParticipant, LeftGroupCallParticipant),
-        ):
-            return
-
-        chat_id = getattr(update, "chat_id", None)
-        participant = getattr(update, "participant", None)
-
-        if chat_id is None or participant is None:
-            return
-
-        user_id = getattr(participant, "user_id", None)
-
-        if user_id is None:
-            return
-
-        if not await is_vclogger_on(chat_id):
-            return
-
-        tag = (
-            "#JᴏɪɴᴇᴅVᴄ"
-            if isinstance(update, JoinedGroupCallParticipant)
-            else "#LᴇғᴛVᴄ"
-        )
-
-        role = "MEMBER"
-
-        try:
-            member = await app.get_chat_member(chat_id, user_id)
-
-            if member.status == ChatMemberStatus.OWNER:
-                role = "OWNER"
-
-            elif member.status == ChatMemberStatus.ADMINISTRATOR:
-                role = "ADMIN"
-
-        except Exception:
-            pass
-
-        mention = await vclogger_mention(user_id)
-
-        text = (
-            f"<b><blockquote>{tag}\n\n"
-            f"➤ Usᴇʀ - {mention}\n"
-            f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
-            f"➤ Rᴏʟᴇ - {role}"
-            "</blockquote></b>"
-        )
-
-        keyboard = await _vc_join_keyboard(chat_id)
-
-        sent_message = await app.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
-
-        asyncio.create_task(_vc_delete_later(sent_message))
-
-        return sent_message
-
-    except asyncio.CancelledError:
-        raise
-
-    except Exception:
-        LOG.exception("[VC Logger] Participant handler failed")
-        return None
-
-
-# REGISTER LOGGER WITH ALL 5 ASSISTANTS
-
-
 # VC JOIN / LEFT LOGGER - PyTgCalls v3
 
 async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
+    global VC_FLOOD_UNTIL
+
     try:
         chat_id = getattr(update, "chat_id", None)
         participant = getattr(update, "participant", None)
@@ -226,8 +179,12 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
         if action == GroupCallParticipant.Action.JOINED:
             tag = "#JᴏɪɴᴇᴅVᴄ"
+            event_type = "joined"
+
         elif action == GroupCallParticipant.Action.LEFT:
             tag = "#LᴇғᴛVᴄ"
+            event_type = "left"
+
         else:
             return
 
@@ -239,121 +196,94 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
         if not await is_vclogger_on(chat_id):
             return
 
-        role = "MEMBER"
+        event_key = (chat_id, user_id, event_type)
 
-        try:
-            member = await app.get_chat_member(chat_id, user_id)
+        now = time.monotonic()
 
-            if member.status == ChatMemberStatus.OWNER:
-                role = "OWNER"
-            elif member.status == ChatMemberStatus.ADMINISTRATOR:
-                role = "ADMIN"
+        # Remove expired duplicate records.
+        for key, timestamp in list(VC_EVENT_CACHE.items()):
+            if now - timestamp >= VC_DUPLICATE_DELAY:
+                VC_EVENT_CACHE.pop(key, None)
 
-        except Exception:
-            pass
+        # Prevent the same event from being sent by multiple assistants.
+        if now - VC_EVENT_CACHE.get(event_key, 0) < VC_DUPLICATE_DELAY:
+            return
 
-        mention = await vclogger_mention(user_id)
+        VC_EVENT_CACHE[event_key] = now
 
-        text = (
-            f"<b><blockquote>{tag}\n\n"
-            f"➤ Usᴇʀ - {mention}\n"
-            f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
-            f"➤ Rᴏʟᴇ - {role}"
-            "</blockquote></b>"
+        lock = VC_CHAT_LOCKS.setdefault(
+            chat_id,
+            asyncio.Lock(),
         )
 
-        keyboard = await _vc_join_keyboard(chat_id)
+        async with lock:
+            now = time.monotonic()
 
-        sent_message = await app.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
+            # Respect Telegram's FloodWait.
+            if now < VC_FLOOD_UNTIL:
+                return
 
-        asyncio.create_task(_vc_delete_later(sent_message))
+            role = "MEMBER"
 
-        return sent_message
+            try:
+                member = await app.get_chat_member(chat_id, user_id)
+
+                if member.status == ChatMemberStatus.OWNER:
+                    role = "OWNER"
+
+                elif member.status == ChatMemberStatus.ADMINISTRATOR:
+                    role = "ADMIN"
+
+            except Exception:
+                pass
+
+            mention = await vclogger_mention(user_id)
+
+            text = (
+                f"<b><blockquote>{tag}\n\n"
+                f"➤ Usᴇʀ - {mention}\n"
+                f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
+                f"➤ Rᴏʟᴇ - {role}"
+                "</blockquote></b>"
+            )
+
+            keyboard = await _vc_join_keyboard(chat_id)
+
+            try:
+                sent_message = await app.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_web_page_preview=True,
+                )
+
+            except FloodWait as error:
+                seconds = max(1, int(error.value))
+
+                VC_FLOOD_UNTIL = time.monotonic() + seconds + 2
+
+                LOG.warning(
+                    "[VC Logger] Telegram FloodWait: %s seconds",
+                    seconds,
+                )
+                return
+
+            asyncio.create_task(
+                _vc_delete_later(sent_message)
+            )
+
+            await asyncio.sleep(VC_SEND_DELAY)
+
+            return sent_message
 
     except asyncio.CancelledError:
         raise
 
     except Exception:
-        LOG.exception("[VC Logger] Participant handler failed")
-        return None
-
-
-
-
-# VC JOIN / LEFT LOGGER - PyTgCalls v3
-
-async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
-    try:
-        chat_id = getattr(update, "chat_id", None)
-        participant = getattr(update, "participant", None)
-        action = getattr(update, "action", None)
-
-        if chat_id is None or participant is None:
-            return
-
-        if action == GroupCallParticipant.Action.JOINED:
-            tag = "#JᴏɪɴᴇᴅVᴄ"
-        elif action == GroupCallParticipant.Action.LEFT:
-            tag = "#LᴇғᴛVᴄ"
-        else:
-            return
-
-        user_id = getattr(participant, "user_id", None)
-
-        if user_id is None:
-            return
-
-        if not await is_vclogger_on(chat_id):
-            return
-
-        role = "MEMBER"
-
-        try:
-            member = await app.get_chat_member(chat_id, user_id)
-
-            if member.status == ChatMemberStatus.OWNER:
-                role = "OWNER"
-            elif member.status == ChatMemberStatus.ADMINISTRATOR:
-                role = "ADMIN"
-
-        except Exception:
-            pass
-
-        mention = await vclogger_mention(user_id)
-
-        text = (
-            f"<b><blockquote>{tag}\n\n"
-            f"➤ Usᴇʀ - {mention}\n"
-            f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
-            f"➤ Rᴏʟᴇ - {role}"
-            "</blockquote></b>"
+        LOG.exception(
+            "[VC Logger] Participant handler failed"
         )
-
-        keyboard = await _vc_join_keyboard(chat_id)
-
-        sent_message = await app.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
-
-        asyncio.create_task(_vc_delete_later(sent_message))
-
-        return sent_message
-
-    except asyncio.CancelledError:
-        raise
-
-    except Exception:
-        LOG.exception("[VC Logger] Participant handler failed")
         return None
 
 
@@ -374,13 +304,14 @@ def register_vclogger(call):
     )
 
     for assistant in assistants:
+        assistant_id = id(assistant)
+
+        if assistant_id in VC_REGISTERED:
+            continue
+
         assistant.add_handler(
             participants_change_handler,
             participant_filter,
         )
 
-    for assistant in assistants:
-        assistant.add_handler(
-            participants_change_handler,
-            participant_filter,
-        )
+        VC_REGISTERED.add(assistant_id)
