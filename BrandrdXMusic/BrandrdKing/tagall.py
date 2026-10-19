@@ -103,12 +103,6 @@ async def send_batch(
         except FloodWait as error:
             seconds = max(1, int(error.value))
 
-            LOG.warning(
-                "[ALL TAG] FloodWait chat=%s wait=%ss",
-                chat_id,
-                seconds,
-            )
-
             if seconds > MAX_FLOOD_WAIT:
                 return False
 
@@ -122,10 +116,6 @@ async def send_batch(
             raise
 
         except Exception:
-            LOG.exception(
-                "[ALL TAG] Failed sending batch chat=%s",
-                chat_id,
-            )
             return False
 
     return False
@@ -186,12 +176,6 @@ async def run_tagging(
                 total_tagged += len(mentions)
                 mentions = []
 
-                LOG.info(
-                    "[ALL TAG] chat=%s tagged=%s",
-                    chat_id,
-                    total_tagged,
-                )
-
                 if await wait_or_stop(
                     stop_event,
                     TAG_DELAY,
@@ -221,19 +205,11 @@ async def run_tagging(
     except asyncio.CancelledError:
         raise
 
-    except FloodWait as error:
-        LOG.warning(
-            "[ALL TAG] Member retrieval FloodWait "
-            "chat=%s wait=%ss",
-            chat_id,
-            error.value,
-        )
+    except FloodWait:
+        pass
 
     except Exception:
-        LOG.exception(
-            "[ALL TAG] Member retrieval failed chat=%s",
-            chat_id,
-        )
+        pass
 
     finally:
         current_task = asyncio.current_task()
@@ -241,15 +217,6 @@ async def run_tagging(
         if TAG_TASKS.get(chat_id) is current_task:
             TAG_TASKS.pop(chat_id, None)
             TAG_STOPS.pop(chat_id, None)
-
-        LOG.warning(
-            "[ALL TAG] Finished chat=%s retrieved=%s "
-            "tagged=%s completed=%s",
-            chat_id,
-            total_retrieved,
-            total_tagged,
-            completed,
-        )
 
         status = (
             "✅ ᴛᴀɢɢɪɴɢ ᴄᴏᴍᴘʟᴇᴛᴇᴅ!"
@@ -270,9 +237,7 @@ async def run_tagging(
             )
 
         except Exception:
-            LOG.exception(
-                "[ALL TAG] Completion message failed"
-            )
+            pass
 
 
 @app.on_message(
@@ -347,9 +312,7 @@ async def tag_all_users(_, message):
         )
 
     except Exception:
-        LOG.exception(
-            "[ALL TAG] Start message failed"
-        )
+        pass
 
 
 @app.on_message(
