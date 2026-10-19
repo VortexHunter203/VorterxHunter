@@ -4,6 +4,7 @@ from html import escape
 
 from pyrogram import enums, filters
 from pyrogram.errors import FloodWait
+from pyrogram.enums import ChatMemberStatus
 
 from BrandrdXMusic import app
 
@@ -15,6 +16,25 @@ TAG_STOPS = {}
 BATCH_SIZE = 1
 TAG_DELAY = 7
 MAX_FLOOD_WAIT = 120
+
+
+async def is_admin(client, message):
+    try:
+        if not message.from_user:
+            return False
+
+        member = await client.get_chat_member(
+            message.chat.id,
+            message.from_user.id,
+        )
+
+        return member.status in (
+            ChatMemberStatus.OWNER,
+            ChatMemberStatus.ADMINISTRATOR,
+        )
+
+    except Exception:
+        return False
 
 
 def get_mention(user):
@@ -95,6 +115,7 @@ async def send_batch(
                 text=content,
                 disable_web_page_preview=True,
                 reply_to_message_id=reply_id,
+                parse_mode=enums.ParseMode.HTML,
             )
 
             return True
@@ -115,6 +136,7 @@ async def send_batch(
             raise
 
         except Exception:
+            LOG.exception("TagAll message sending failed")
             return False
 
     return False
@@ -208,7 +230,7 @@ async def run_tagging(
         pass
 
     except Exception:
-        pass
+        LOG.exception("TagAll process failed")
 
     finally:
         current_task = asyncio.current_task()
@@ -233,6 +255,7 @@ async def run_tagging(
                 f"<code>{total_tagged}</code>\n"
                 "🔁 ᴅᴜᴘʟɪᴄᴀᴛᴇ ᴛᴀɢs: <code>0</code>"
                 "</blockquote></b>",
+                parse_mode=enums.ParseMode.HTML,
             )
 
         except Exception:
@@ -244,9 +267,8 @@ async def run_tagging(
         ["all", "mention", "mentionall"],
         prefixes=["/", "@", ".", "#"],
     )
-    & admin_filter
 )
-async def tag_all_users(_, message):
+async def tag_all_users(client, message):
     chat_id = message.chat.id
 
     if message.chat.type == enums.ChatType.PRIVATE:
@@ -254,6 +276,15 @@ async def tag_all_users(_, message):
             "<b><blockquote>"
             "🚫 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ᴏɴʟʏ ғᴏʀ ɢʀᴏᴜᴘs."
             "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    if not await is_admin(client, message):
+        return await message.reply_text(
+            "<b><blockquote>"
+            "❌ ᴏɴʟʏ ᴀᴅᴍɪɴs ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ."
+            "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
         )
 
     replied = message.reply_to_message
@@ -273,6 +304,7 @@ async def tag_all_users(_, message):
             "ᴇxᴀᴍᴘʟᴇ » <code>@all Hi Friends</code>\n"
             "ᴏʀ ʀᴇᴘʟʏ ᴡɪᴛʜ <code>/all</code>"
             "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
         )
 
     existing = TAG_TASKS.get(chat_id)
@@ -283,6 +315,7 @@ async def tag_all_users(_, message):
             "⚠️ ᴛᴀɢɢɪɴɢ ɪs ᴀʟʀᴇᴀᴅʏ ʀᴜɴɴɪɴɢ!\n\n"
             "🛑 <code>/cancel</code>"
             "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
         )
 
     stop_event = asyncio.Event()
@@ -308,6 +341,7 @@ async def tag_all_users(_, message):
             "⏳ ᴅᴇʟᴀʏ: 7 sᴇᴄᴏɴᴅs\n\n"
             "🛑 ᴏғғ ᴛᴀɢɢɪɴɢ » <code>/cancel</code>"
             "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
         )
 
     except Exception:
@@ -331,9 +365,25 @@ async def tag_all_users(_, message):
         ],
         prefixes=["/", "@", "#"],
     )
-    
-async def cancelcmd(_, message):
+)
+async def cancelcmd(client, message):
     chat_id = message.chat.id
+
+    if message.chat.type == enums.ChatType.PRIVATE:
+        return await message.reply_text(
+            "<b><blockquote>"
+            "🚫 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ᴏɴʟʏ ғᴏʀ ɢʀᴏᴜᴘs."
+            "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    if not await is_admin(client, message):
+        return await message.reply_text(
+            "<b><blockquote>"
+            "❌ ᴏɴʟʏ ᴀᴅᴍɪɴs ᴄᴀɴ sᴛᴏᴘ ᴛᴀɢɢɪɴɢ."
+            "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
 
     task = TAG_TASKS.get(chat_id)
     stop_event = TAG_STOPS.get(chat_id)
@@ -343,6 +393,7 @@ async def cancelcmd(_, message):
             "<b><blockquote>"
             "⚠️ ɴᴏ ᴘʀᴏᴄᴇss ᴏɴɢᴏɪɴɢ!"
             "</blockquote></b>",
+            parse_mode=enums.ParseMode.HTML,
         )
 
     stop_event.set()
@@ -352,4 +403,5 @@ async def cancelcmd(_, message):
         "🛑 ᴛᴀɢɢɪɴɢ sᴛᴏᴘ ʀᴇǫᴜᴇsᴛᴇᴅ!\n\n"
         "⏳ ᴘʀᴏᴄᴇss ɪs sᴛᴏᴘᴘɪɴɢ..."
         "</blockquote></b>",
+        parse_mode=enums.ParseMode.HTML,
     )
