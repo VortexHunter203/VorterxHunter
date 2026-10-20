@@ -2,7 +2,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 from pyrogram import *
 from pyrogram.types import *
-from pyrogram.enums import ChatMemberStatus, ParseMode
+from pyrogram.enums import ChatMemberStatus, ParseMode, ButtonStyle
 from logging import getLogger
 from html import escape
 
@@ -310,6 +310,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             f"</blockquote></b>"
         )
 
+        # ADD ME BUTTON
         sent = await app.send_photo(
             chat_id,
             photo=welcomeimg,
@@ -394,4 +395,4 @@ async def bot_wel(_, message):
         except Exception:
             LOGGER.exception(
                 "Could not send group log"
-            )
+    )
