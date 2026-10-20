@@ -17,24 +17,13 @@ from config import BOT_TOKEN, OWNER_ID
 
 
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.WARNING)
 
 
 # =========================================================
 # CONFIG
 # =========================================================
 
-# Pending requests:
-#
-# {
-#     (user_id, chat_id): {
-#         "chat_id": -100123456789,
-#         "user_id": 123456789,
-#         "user_chat_id": 123456789,
-#         "user_name": "Kajal",
-#         "chat_title": "My Group"
-#     }
-# }
-#
 PENDING_REQUESTS: Dict[Tuple[int, int], dict] = {}
 
 # Prevent duplicate processing
@@ -49,7 +38,6 @@ def user_mention(user) -> str:
     """Create safe Telegram HTML mention."""
     name = user.first_name or "User"
 
-    # Escape HTML characters manually.
     name = (
         str(name)
         .replace("&", "&amp;")
@@ -80,24 +68,18 @@ def safe_text(value, default="Unknown") -> str:
 # =========================================================
 
 async def bot_api(method: str, data: dict):
-    """
-    Call Telegram Bot API directly.
-
-    This is intentionally used for approveChatJoinRequest()
-    so we don't hit Pyrogram's MTProto channels.GetChannels
-    peer-resolution path that is producing CHANNEL_INVALID.
-    """
+    """Call Telegram Bot API directly."""
 
     if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN is missing in environment variables.")
+        raise RuntimeError(
+            "BOT_TOKEN is missing in environment variables."
+        )
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
-
     timeout = aiohttp.ClientTimeout(total=20)
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(url, json=data) as response:
-
             try:
                 result = await response.json()
             except Exception:
@@ -111,7 +93,6 @@ async def bot_api(method: str, data: dict):
                     "description",
                     "Unknown Telegram Bot API error",
                 )
-
                 error_code = result.get("error_code")
 
                 raise RuntimeError(
@@ -123,9 +104,7 @@ async def bot_api(method: str, data: dict):
 
 
 async def approve_join_request(chat_id: int, user_id: int) -> bool:
-    """
-    Approve a pending join request through Telegram Bot API.
-    """
+    """Approve a pending join request through Telegram Bot API."""
 
     result = await bot_api(
         "approveChatJoinRequest",
@@ -142,13 +121,8 @@ async def approve_join_request(chat_id: int, user_id: int) -> bool:
 # OWNER NOTIFICATION
 # =========================================================
 
-async def notify_owner(
-    client,
-    request: ChatJoinRequest,
-):
-    """
-    Send join request notification to OWNER_ID.
-    """
+async def notify_owner(client, request: ChatJoinRequest):
+    """Send join request notification to OWNER_ID."""
 
     try:
         user = request.from_user
@@ -165,10 +139,7 @@ async def notify_owner(
             "⏳ Waiting for user verification."
         )
 
-        await client.send_message(
-            OWNER_ID,
-            text,
-        )
+        await client.send_message(OWNER_ID, text)
 
         LOGGER.info(
             "Owner notification sent | user=%s chat=%s",
@@ -198,53 +169,20 @@ async def handle_join_request(
         chat = request.chat
 
         if not user:
-            LOGGER.warning(
-                "Join request received without user."
-            )
+            LOGGER.warning("Join request received without user.")
             return
 
         if not chat:
-            LOGGER.warning(
-                "Join request received without chat."
-            )
+            LOGGER.warning("Join request received without chat.")
             return
 
         user_id = int(user.id)
         chat_id = int(chat.id)
-
         chat_title = chat.title or "this group"
-
         request_key = (user_id, chat_id)
 
-        LOGGER.info(
-            "========================================"
-        )
-        LOGGER.info(
-            "NEW JOIN REQUEST"
-        )
-        LOGGER.info(
-            "User ID   : %s",
-            user_id,
-        )
-        LOGGER.info(
-            "User      : %s",
-            user.first_name,
-        )
-        LOGGER.info(
-            "Chat ID   : %s",
-            chat_id,
-        )
-        LOGGER.info(
-            "Chat      : %s",
-            chat_title,
-        )
-        LOGGER.info(
-            "Chat Type : %s",
-            getattr(chat, "type", None),
-        )
-        LOGGER.info(
-            "========================================"
-        )
+        # INFO logs are disabled for this module.
+        # Request processing and notifications remain enabled.
 
         # -------------------------------------------------
         # SAVE REQUEST
@@ -267,10 +205,7 @@ async def handle_join_request(
         # -------------------------------------------------
 
         asyncio.create_task(
-            notify_owner(
-                client,
-                request,
-            )
+            notify_owner(client, request)
         )
 
         # -------------------------------------------------
@@ -336,16 +271,11 @@ async def handle_join_request(
         # SEND DM
         # -------------------------------------------------
 
-        # Telegram's join-request mechanism allows the bot
-        # to contact the requester in this context.
-        #
-        # Prefer user_chat_id when available.
         user_chat_id = getattr(
             request,
             "user_chat_id",
             None,
         )
-
         dm_chat_id = user_chat_id or user_id
 
         try:
@@ -373,9 +303,6 @@ async def handle_join_request(
                 e,
                 exc_info=True,
             )
-
-            # Don't remove the pending request.
-            # The user may still open the bot manually.
             return
 
     except Exception as e:
@@ -392,7 +319,7 @@ async def handle_join_request(
 
 @app.on_message(
     filters.private & filters.command("start"),
-    group=-1
+    group=-1,
 )
 async def join_start_handler(
     client,
@@ -405,9 +332,7 @@ async def join_start_handler(
         actual_user_id = int(message.from_user.id)
 
         # =====================================================
-        # CASE 1:
-        # Deep-link:
-        # /start join_USER_ID_CHAT_ID
+        # CASE 1: DEEP-LINK /start join_USER_ID_CHAT_ID
         # =====================================================
 
         payload = None
@@ -433,7 +358,6 @@ async def join_start_handler(
                 )
                 return
 
-            # Security check
             if actual_user_id != requested_user_id:
                 await message.reply_text(
                     "<blockquote>❌ This join request link is not for you.</blockquote>"
@@ -445,7 +369,6 @@ async def join_start_handler(
                 requested_chat_id,
             )
 
-            # Prevent duplicate processing
             if request_key in PROCESSING_REQUESTS:
                 await message.reply_text(
                     "⏳ Your join request is already being processed."
@@ -468,10 +391,7 @@ async def join_start_handler(
 
                 chat_id = int(pending["chat_id"])
                 user_id = int(pending["user_id"])
-                chat_title = pending.get(
-                    "chat_title",
-                    "the group",
-                )
+                chat_title = pending.get("chat_title", "the group")
 
                 LOGGER.info(
                     "Processing deep-link join request | "
@@ -535,10 +455,7 @@ async def join_start_handler(
                     return
 
                 if approved:
-                    PENDING_REQUESTS.pop(
-                        request_key,
-                        None,
-                    )
+                    PENDING_REQUESTS.pop(request_key, None)
 
                     await message.reply_text(
                         "<blockquote>"
@@ -567,53 +484,32 @@ async def join_start_handler(
             return
 
         # =====================================================
-        # CASE 2:
-        # NORMAL /start
-        #
-        # User manually unblocked the bot and pressed Start.
-        # No deep-link payload is required.
-        #
-        # We search PENDING_REQUESTS for this user and
-        # automatically approve the pending join request.
+        # CASE 2: NORMAL /start
         # =====================================================
 
         pending_matches = []
 
-        for request_key, pending in list(
-            PENDING_REQUESTS.items()
-        ):
+        for request_key, pending in list(PENDING_REQUESTS.items()):
             try:
                 pending_user_id = int(
-                    pending.get(
-                        "user_id",
-                        request_key[0],
-                    )
+                    pending.get("user_id", request_key[0])
                 )
 
                 if pending_user_id == actual_user_id:
-                    pending_matches.append(
-                        (request_key, pending)
-                    )
+                    pending_matches.append((request_key, pending))
 
             except Exception:
                 continue
 
-        # No pending join request for this user.
-        # Let the bot's other /start handler continue normally.
         if not pending_matches:
             return
 
-        # Use the most recently stored pending request.
         request_key, pending = pending_matches[-1]
 
         chat_id = int(pending["chat_id"])
         user_id = int(pending["user_id"])
-        chat_title = pending.get(
-            "chat_title",
-            "the group",
-        )
+        chat_title = pending.get("chat_title", "the group")
 
-        # Prevent duplicate processing
         if request_key in PROCESSING_REQUESTS:
             await message.reply_text(
                 "⏳ Your join request is already being processed."
@@ -685,10 +581,7 @@ async def join_start_handler(
                 return
 
             if approved:
-                PENDING_REQUESTS.pop(
-                    request_key,
-                    None,
-                )
+                PENDING_REQUESTS.pop(request_key, None)
 
                 await message.reply_text(
                     "<blockquote>"
@@ -756,31 +649,21 @@ async def join_start_handler(
 # =========================================================
 
 async def cleanup_pending_requests():
-    """
-    Optional cleanup task.
-
-    Removes old in-memory requests so the dictionary
-    doesn't grow forever.
-    """
+    """Remove excess in-memory pending requests."""
 
     while True:
         try:
             await asyncio.sleep(1800)
 
-            # Keep this conservative. Requests that aren't
-            # processed will be removed on restart anyway.
             if len(PENDING_REQUESTS) > 5000:
                 LOGGER.warning(
                     "Pending request cache exceeded 5000 entries. "
                     "Clearing cache."
                 )
-
                 PENDING_REQUESTS.clear()
 
         except asyncio.CancelledError:
             break
 
         except Exception:
-            LOGGER.exception(
-                "Pending request cleanup failed"
-            )
+            LOGGER.exception("Pending request cleanup failed")
