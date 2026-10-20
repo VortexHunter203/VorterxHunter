@@ -8,6 +8,13 @@ from html import escape
 
 from BrandrdXMusic import app
 
+# Agar LOG_CHANNEL_ID config mein defined hai,
+# to apne project ke existing config se import karo.
+try:
+    from config import LOG_CHANNEL_ID
+except ImportError:
+    LOG_CHANNEL_ID = None
+
 LOGGER = getLogger(__name__)
 
 BACKGROUND = "BrandrdXMusic/assets/Brandedwel2.png"
@@ -15,7 +22,7 @@ DEFAULT_PIC = "BrandrdXMusic/assets/upic.png"
 FONT_PATH = "BrandrdXMusic/assets/font.ttf"
 DOWNLOAD_DIR = "downloads"
 
-# BACKGROUND SETTINGS: 1536 x 1024
+# Background: 1536 x 1024
 PHOTO_SIZE = 400
 PHOTO_POSITION = (842, 326)
 
@@ -105,13 +112,18 @@ def fit_text(draw, text, font, max_width):
 def welcomepic(pic, user, chatname, user_id, uname):
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+    output = os.path.join(
+        DOWNLOAD_DIR,
+        f"welcome_{user_id}.png"
+    )
+
     with Image.open(BACKGROUND) as source:
         background = source.convert("RGBA")
 
-    # PROFILE PHOTO
     with Image.open(pic) as source:
         pfp = circle(source, (PHOTO_SIZE, PHOTO_SIZE))
 
+    # PROFILE PHOTO
     background.paste(
         pfp,
         PHOTO_POSITION,
@@ -122,16 +134,14 @@ def welcomepic(pic, user, chatname, user_id, uname):
 
     title_font = load_font(29)
     info_font = load_font(23)
-    footer_font = load_font(21)
 
     white = (255, 255, 255, 255)
     pink = (255, 100, 220, 255)
     blue = (80, 190, 255, 255)
 
-    # CLEAR OLD PLACEHOLDER TEXT INSIDE THE LEFT PANEL.
-    # These coordinates are for the supplied 1536x1024
-    # welcome background. The neon border stays outside.
+    # DETAILS PANEL
     panel = (190, 460, 760, 705)
+
     draw.rectangle(
         panel,
         fill=(5, 2, 22, 255)
@@ -140,7 +150,6 @@ def welcomepic(pic, user, chatname, user_id, uname):
     panel_x = 205
     max_width = 535
 
-    # DRAW USER DETAILS ONLY ONCE
     draw.text(
         (panel_x, 475),
         "USER DETAILS",
@@ -155,17 +164,16 @@ def welcomepic(pic, user, chatname, user_id, uname):
         max_width
     )
 
-    id_text = f"ID: {user_id}"
-
-    username_text = (
-        f"USERNAME: @{uname}"
-        if uname
-        else "USERNAME: No username"
+    id_text = fit_text(
+        draw,
+        f"ID: {user_id}",
+        info_font,
+        max_width
     )
 
     username_text = fit_text(
         draw,
-        username_text,
+        f"USERNAME: @{uname}" if uname else "USERNAME: No username",
         info_font,
         max_width
     )
@@ -191,19 +199,6 @@ def welcomepic(pic, user, chatname, user_id, uname):
         fill=pink
     )
 
-    # FOOTER
-    draw.text(
-        (panel_x, 665),
-        "MADE BY BRANDED KING",
-        font=footer_font,
-        fill=pink
-    )
-
-    output = os.path.join(
-        DOWNLOAD_DIR,
-        f"welcome_{user_id}.png"
-    )
-
     background.save(output, "PNG")
     return output
 
@@ -215,6 +210,7 @@ async def greet_group(_, member: ChatMemberUpdated):
     if not member.new_chat_member:
         return
 
+    # Ignore ordinary status changes.
     if member.old_chat_member:
         return
 
@@ -257,7 +253,9 @@ async def greet_group(_, member: ChatMemberUpdated):
             pic = DEFAULT_PIC
 
         if not os.path.isfile(pic):
-            LOGGER.error("Default profile image not found: %s", pic)
+            LOGGER.error(
+                "Profile image not found: %s", pic
+            )
             return
 
         # DELETE PREVIOUS WELCOME MESSAGE
@@ -274,7 +272,7 @@ async def greet_group(_, member: ChatMemberUpdated):
                     e
                 )
 
-        # CREATE IMAGE
+        # CREATE WELCOME IMAGE
         welcomeimg = welcomepic(
             pic,
             user.first_name or "User",
@@ -283,7 +281,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             user.username
         )
 
-        # CAPTION
+        # ESCAPE HTML VALUES
         username = (
             f"@{escape(user.username)}"
             if user.username
@@ -300,7 +298,7 @@ async def greet_group(_, member: ChatMemberUpdated):
 
         caption = (
             f"<b><blockquote>"
-            f"💖 𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 {group_title} 💖\n"
+            f"🪻𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 {group_title}\n"
             f"➖➖➖➖➖➖➖➖\n"
             f"๏ 𝗡𝗔𝗠𝗘 ➠ {first_name}\n"
             f"๏ 𝗜'𝗗 ➠ <code>{user.id}</code>\n"
@@ -380,6 +378,12 @@ async def bot_wel(_, message):
             f"➖➖➖➖➖➖➖➖"
             f"</blockquote></b>"
         )
+
+        if LOG_CHANNEL_ID is None:
+            LOGGER.error(
+                "LOG_CHANNEL_ID is missing from config.py"
+            )
+            continue
 
         try:
             await app.send_message(
