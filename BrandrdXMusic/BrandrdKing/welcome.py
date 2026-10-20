@@ -1,11 +1,24 @@
 import os
-from PIL import ImageDraw, Image, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageFont, ImageChops
 from pyrogram import *
 from pyrogram.types import *
+from pyrogram.enums import ChatMemberStatus
 from logging import getLogger
+from html import escape
+
 from BrandrdXMusic import app
 
 LOGGER = getLogger(__name__)
+
+BACKGROUND = "BrandrdXMusic/assets/Brandedwel2.png"
+DEFAULT_PIC = "BrandrdXMusic/assets/upic.png"
+DOWNLOAD_DIR = "downloads"
+
+# New background: 1536 x 1024
+# Neon profile circle is on the right side.
+PHOTO_SIZE = 400
+PHOTO_POSITION = (842, 326)
+
 
 class WelDatabase:
     def __init__(self):
@@ -18,8 +31,7 @@ class WelDatabase:
         self.data[chat_id] = {}
 
     async def rm_wlcm(self, chat_id):
-        if chat_id in self.data:
-            del self.data[chat_id]
+        self.data.pop(chat_id, None)
 
 
 wlcm = WelDatabase()
@@ -34,118 +46,139 @@ class temp:
     B_NAME = None
 
 
-def circle(pfp, size=(500, 500)):
-    pfp = pfp.resize(size, Image.LANCZOS).convert("RGBA")
-    bigsize = (pfp.size[0] * 3, pfp.size[1] * 3)
+def circle(pfp, size=(400, 400)):
+    pfp = pfp.convert("RGBA")
 
-    mask = Image.new("L", bigsize, 0)
+    # Center-crop to a square without stretching the face.
+    width, height = pfp.size
+    side = min(width, height)
+    left = (width - side) // 2
+    top = (height - side) // 2
+
+    pfp = pfp.crop(
+        (left, top, left + side, top + side)
+    )
+    pfp = pfp.resize(size, Image.Resampling.LANCZOS)
+
+    mask = Image.new("L", size, 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0) + bigsize, fill=255)
-
-    mask = mask.resize(pfp.size, Image.LANCZOS)
-    mask = ImageChops.darker(mask, pfp.split()[-1])
+    draw.ellipse(
+        (0, 0, size[0] - 1, size[1] - 1),
+        fill=255
+    )
 
     pfp.putalpha(mask)
     return pfp
 
 
-def welcomepic(pic, user, chatname, id, uname):
-    background = Image.open(
-        "BrandrdXMusic/assets/Brandedwel2.png"
+def welcomepic(pic, user, chatname, user_id, uname):
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    with Image.open(BACKGROUND) as source:
+        background = source.convert("RGBA")
+
+    with Image.open(pic) as source:
+        pfp = circle(source, (PHOTO_SIZE, PHOTO_SIZE))
+
+    # Paste profile photo inside the right neon circle.
+    background.paste(
+        pfp,
+        PHOTO_POSITION,
+        pfp
     )
 
-    pfp = Image.open(pic).convert("RGBA")
-    pfp = circle(pfp)
-    pfp = pfp.resize((825, 824))
-
-    draw = ImageDraw.Draw(background)
-
-    font = ImageFont.truetype(
-        "BrandrdXMusic/assets/font.ttf",
-        size=110
+    # Save the completed welcome image.
+    output = os.path.join(
+        DOWNLOAD_DIR,
+        f"welcome_{user_id}.png"
     )
 
-    welcome_font = ImageFont.truetype(
-        "BrandrdXMusic/assets/font.ttf",
-        size=60
-    )
-
-    draw.text(
-        (2100, 1420),
-        f"ID: {id}",
-        fill=(12000, 12000, 12000),
-        font=font
-    )
-
-    pfp_position = (1990, 435)
-    background.paste(pfp, pfp_position, pfp)
-
-    background.save(f"downloads/welcome#{id}.png")
-
-    return f"downloads/welcome#{id}.png"
+    background.save(output, "PNG")
+    return output
 
 
 @app.on_chat_member_updated(filters.group, group=-3)
 async def greet_group(_, member: ChatMemberUpdated):
     chat_id = member.chat.id
 
-    A = await wlcm.find_one(chat_id)
-
     if (
         not member.new_chat_member
         or member.new_chat_member.status in {
-            "banned",
-            "left",
-            "restricted"
+            ChatMemberStatus.BANNED,
+            ChatMemberStatus.LEFT,
+            ChatMemberStatus.RESTRICTED,
         }
         or member.old_chat_member
     ):
         return
 
-    user = (
-        member.new_chat_member.user
-        if member.new_chat_member
-        else member.from_user
+    user = member.new_chat_member.user
+
+    if user.is_bot:
+        return
+
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    pic = None
+    welcomeimg = None
+    downloaded_pic = os.path.join(
+        DOWNLOAD_DIR, f"pp{user.id}.png"
     )
 
     try:
-        pic = await app.download_media(
-            user.photo.big_file_id,
-            file_name=f"pp{user.id}.png"
-        )
-    except AttributeError:
-        pic = "BrandrdXMusic/assets/Brandedwel2.png"
-
-    if temp.MELCOW.get(
-        f"welcome-{member.chat.id}"
-    ) is not None:
         try:
-            await temp.MELCOW[
-                f"welcome-{member.chat.id}"
-            ].delete()
+            if user.photo:
+                pic = await app.download_media(
+                    user.photo.big_file_id,
+                    file_name=downloaded_pic
+                )
         except Exception as e:
-            LOGGER.error(e)
+            LOGGER.warning(
+                "Profile photo download failed: %s", e
+            )
 
-    try:
+        if not pic or not os.path.isfile(pic):
+            pic = DEFAULT_PIC
+
+        # Delete the previous welcome message.
+        previous = temp.MELCOW.get(
+            f"welcome-{chat_id}"
+        )
+
+        if previous:
+            try:
+                await previous.delete()
+            except Exception as e:
+                LOGGER.warning(
+                    "Could not delete previous welcome: %s", e
+                )
+
         welcomeimg = welcomepic(
             pic,
-            user.first_name,
-            member.chat.title,
+            user.first_name or "User",
+            member.chat.title or "Group",
             user.id,
             user.username
         )
 
         username = (
-            f"@{user.username}"
+            f"@{escape(user.username)}"
             if user.username
             else "ɴᴏ ᴜsᴇʀɴᴀᴍᴇ"
         )
 
+        group_title = escape(
+            member.chat.title or "Group"
+        )
+        first_name = escape(
+            user.first_name or "User"
+        )
+
         caption = (
             f"<b><blockquote>"
-            f"𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 {member.chat.title}\n"
+            f"💖 𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗧𝗢 {group_title} 💖\n"
             f"➖➖➖➖➖➖➖➖\n"
-            f"๏ 𝗡𝗔𝗠𝗘 ➠ {user.mention}\n"
+            f"๏ 𝗡𝗔𝗠𝗘 ➠ {first_name}\n"
             f"๏ 𝗜'𝗗 ➠ <code>{user.id}</code>\n"
             f"๏ 𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘 ➠ {username}\n"
             f"๏ 𝗠𝗔𝗗𝗘 𝗕𝗬 ➠ "
@@ -155,10 +188,8 @@ async def greet_group(_, member: ChatMemberUpdated):
             f"</blockquote></b>"
         )
 
-        temp.MELCOW[
-            f"welcome-{member.chat.id}"
-        ] = await app.send_photo(
-            member.chat.id,
+        sent = await app.send_photo(
+            chat_id,
             photo=welcomeimg,
             caption=caption,
             reply_markup=InlineKeyboardMarkup(
@@ -177,14 +208,24 @@ async def greet_group(_, member: ChatMemberUpdated):
             )
         )
 
-    except Exception as e:
-        LOGGER.error(e)
+        temp.MELCOW[
+            f"welcome-{chat_id}"
+        ] = sent
 
-    try:
-        os.remove(f"downloads/welcome#{user.id}.png")
-        os.remove(f"downloads/pp{user.id}.png")
-    except Exception:
-        pass
+    except Exception as e:
+        LOGGER.exception(
+            "Welcome image error for user %s: %s",
+            user.id,
+            e
+        )
+
+    finally:
+        for path in (welcomeimg, downloaded_pic):
+            try:
+                if path and os.path.isfile(path):
+                    os.remove(path)
+            except Exception:
+                pass
 
 
 @app.on_message(
@@ -192,28 +233,36 @@ async def greet_group(_, member: ChatMemberUpdated):
     group=-1
 )
 async def bot_wel(_, message):
-    for u in message.new_chat_members:
+    me = await app.get_me()
 
-        if u.id == app.me.id:
+    for user in message.new_chat_members:
+        if user.id != me.id:
+            continue
 
-            username = (
-                f"@{message.chat.username}"
-                if message.chat.username
-                else "ᴘʀɪᴠᴀᴛᴇ ɢʀᴏᴜᴘ"
-            )
+        username = (
+            f"@{message.chat.username}"
+            if message.chat.username
+            else "ᴘʀɪᴠᴀᴛᴇ ɢʀᴏᴜᴘ"
+        )
 
-            log_text = (
-                f"<b><blockquote>"
-                f"📝 𝗡𝗘𝗪 𝗚𝗥𝗢𝗨𝗣\n"
-                f"➖➖➖➖➖➖➖➖\n"
-                f"𝗡𝗔𝗠𝗘: {message.chat.title}\n"
-                f"𝗜'𝗗: <code>{message.chat.id}</code>\n"
-                f"𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘: {username}\n"
-                f"➖➖➖➖➖➖➖➖"
-                f"</blockquote></b>"
-            )
+        log_text = (
+            f"<b><blockquote>"
+            f"📝 𝗡𝗘𝗪 𝗚𝗥𝗢𝗨𝗣\n"
+            f"➖➖➖➖➖➖➖➖\n"
+            f"𝗡𝗔𝗠𝗘: {escape(message.chat.title or 'Group')}\n"
+            f"𝗜'𝗗: <code>{message.chat.id}</code>\n"
+            f"𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘: {escape(username)}\n"
+            f"➖➖➖➖➖➖➖➖"
+            f"</blockquote></b>"
+        )
 
+        try:
             await app.send_message(
                 LOG_CHANNEL_ID,
                 log_text,
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            LOGGER.error(
+                "Could not send group log: %s", e
             )
