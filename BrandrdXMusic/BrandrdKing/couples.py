@@ -1,21 +1,21 @@
-import os 
+import os
 import random
-from datetime import datetime 
+from datetime import datetime, timedelta
 from telegraph import upload_file
-from PIL import Image , ImageDraw
+from PIL import Image, ImageDraw
 from pyrogram import *
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.enums import *
 
-#BOT FILE NAME
+# BOT FILE NAME
 from BrandrdXMusic import app as app
 from BrandrdXMusic.mongo.couples_db import _get_image, get_couple
 
 POLICE = [
     [
         InlineKeyboardButton(
-            text="ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ  🥀",
-            url=f"https://t.me/BRANDED_PAID_CC",
+            text="💖 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀",
+            url="https://t.me/BRANDED_PAID_CC",
         ),
     ],
 ]
@@ -26,27 +26,14 @@ def dt():
     dt_string = now.strftime("%d/%m/%Y %H:%M")
     dt_list = dt_string.split(" ")
     return dt_list
-    
-def dt():
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M")
-    dt_list = dt_string.split(" ")
-    return dt_list
 
 
 def dt_tom():
-    a = (
-        str(int(dt()[0].split("/")[0]) + 1)
-        + "/"
-        + dt()[0].split("/")[1]
-        + "/"
-        + dt()[0].split("/")[2]
-    )
-    return a
+    return (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
 
 
-tomorrow = str(dt_tom())
-today = str(dt()[0])
+tomorrow = dt_tom()
+today = datetime.now().strftime("%d/%m/%Y")
 
 
 @app.on_message(filters.command("couples"))
@@ -55,15 +42,13 @@ async def ctest(_, message):
 
     if message.chat.type == ChatType.PRIVATE:
         return await message.reply_text(
-            "ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs."
+            "💖 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs."
         )
 
     try:
-        # is_selected = await get_couple(cid, today)
-        # if not is_selected:
-
-        msg = await message.reply_text(
-            "ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ..."
+        await message.reply_text(
+            "<b>💞 ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ... ✨</b>",
+            parse_mode=ParseMode.HTML
         )
 
         # GET LIST OF USERS
@@ -85,7 +70,7 @@ async def ctest(_, message):
         while c1_id == c2_id:
             c2_id = random.choice(list_of_users)
 
-        # Get user information
+        # GET USER INFORMATION
         user1 = await app.get_users(c1_id)
         user2 = await app.get_users(c2_id)
 
@@ -95,7 +80,7 @@ async def ctest(_, message):
         N1 = user1.mention
         N2 = user2.mention
 
-        # Get profile photos
+        # GET PROFILE PHOTOS
         photo1 = (await app.get_chat(c1_id)).photo
         photo2 = (await app.get_chat(c2_id)).photo
 
@@ -122,9 +107,11 @@ async def ctest(_, message):
             "BrandrdXMusic/assets/cppicbranded.jpg"
         ).convert("RGBA")
 
+        # RESIZE PROFILE PHOTOS
         img1 = img1.resize((437, 437))
         img2 = img2.resize((437, 437))
 
+        # CIRCULAR MASK FOR FIRST PHOTO
         mask = Image.new("L", img1.size, 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse(
@@ -132,6 +119,7 @@ async def ctest(_, message):
             fill=255
         )
 
+        # CIRCULAR MASK FOR SECOND PHOTO
         mask1 = Image.new("L", img2.size, 0)
         draw = ImageDraw.Draw(mask1)
         draw.ellipse(
@@ -142,18 +130,39 @@ async def ctest(_, message):
         img1.putalpha(mask)
         img2.putalpha(mask1)
 
+        # ORIGINAL PHOTO POSITIONS UNCHANGED
         img.paste(img1, (116, 160), img1)
         img.paste(img2, (789, 160), img2)
 
         img.save(f"test_{cid}.png")
 
-        # HTML formatted caption
+        # UPDATE DATE WHEN COMMAND IS USED
+        tomorrow = (
+            datetime.now() + timedelta(days=1)
+        ).strftime("%d/%m/%Y")
+
+        today = datetime.now().strftime("%d/%m/%Y")
+
+        # COLOURFUL STYLE CAPTION
         TXT = f"""<b><blockquote>
-ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs " 🎉 :
-➖➖➖➖➖➖➖➖➖➖
-<a href="tg://openmessage?user_id={c1_id}">{c1_name}</a> + <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a> = ❣️
-➖➖➖➖➖➖➖➖➖➖
-ɴᴇxᴛ ᴄᴏᴜᴘʟᴇꜱ ᴡɪʟʟ ʙᴇ sᴇʟᴇᴄᴛᴇᴅ ᴏɴ {tomorrow} "!!
+💖✨ ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs ✨💖
+
+━━━━━━━━━━━━━━━━━━
+
+👑 <a href="tg://openmessage?user_id={c1_id}">{c1_name}</a>
+          💞 ➕ 💞
+👑 <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
+
+━━━━━━━━━━━━━━━━━━
+
+💘 ᴍᴀᴅᴇ ғᴏʀ ᴇᴀᴄʜ ᴏᴛʜᴇʀ 💘
+
+💕 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
+🌟 sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow} 🌟
+
+━━━━━━━━━━━━━━━━━━
+
+🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀
 </blockquote></b>"""
 
         await message.reply_photo(
@@ -185,15 +194,4 @@ async def ctest(_, message):
     finally:
         try:
             os.remove("./downloads/pfp.png")
-        except Exception:
-            pass
-
-        try:
-            os.remove("./downloads/pfp1.png")
-        except Exception:
-            pass
-
-        try:
-            os.remove(f"test_{cid}.png")
-        except Exception:
-            pass
+        except
