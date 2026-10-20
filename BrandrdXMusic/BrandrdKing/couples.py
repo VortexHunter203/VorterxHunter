@@ -17,7 +17,7 @@ from BrandrdXMusic.mongo.couples_db import _get_image, get_couple
 POLICE = [
     [
         InlineKeyboardButton(
-            text="💖 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀",
+            text="🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀",
             url="https://t.me/BRANDED_PAID_CC",
         ),
     ],
@@ -160,18 +160,15 @@ async def ctest(_, message):
 
         # COLOURFUL CAPTION
         TXT = f"""<b><blockquote>
-💖✨ ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs ✨💖
+💖 ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs ✨
 ━━━━━━━━━━━━━━━━━━
 👑 <a href="tg://openmessage?user_id={c1_id}">{c1_name}</a>
           💞 ➕ 💞
 👑 <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
 ━━━━━━━━━━━━━━━━━━
-💘 ᴍᴀᴅᴇ ғᴏʀ ᴇᴀᴄʜ ᴏᴛʜᴇʀ 💘
-
-💕 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
+💘 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
 🌟 sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow} 🌟
 ━━━━━━━━━━━━━━━━━━
-🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀
 </blockquote></b>"""
 
         # SEND COUPLES IMAGE
