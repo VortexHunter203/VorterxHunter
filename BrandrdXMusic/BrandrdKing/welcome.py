@@ -15,7 +15,7 @@ DEFAULT_PIC = "BrandrdXMusic/assets/upic.png"
 FONT_PATH = "BrandrdXMusic/assets/font.ttf"
 DOWNLOAD_DIR = "downloads"
 
-# Background dimensions: 1536 x 1024
+# BACKGROUND SETTINGS: 1536 x 1024
 PHOTO_SIZE = 400
 PHOTO_POSITION = (842, 326)
 
@@ -78,18 +78,28 @@ def circle(pfp, size=(400, 400)):
 def load_font(size):
     try:
         return ImageFont.truetype(FONT_PATH, size)
-    except OSError:
+    except (OSError, IOError):
         return ImageFont.load_default()
 
 
 def fit_text(draw, text, font, max_width):
-    """Shorten long text so it fits inside the details panel."""
-    while text and draw.textbbox(
-        (0, 0), text, font=font
-    )[2] > max_width:
-        text = text[:-2] + "…"
+    text = str(text)
 
-    return text
+    if draw.textbbox((0, 0), text, font=font)[2] <= max_width:
+        return text
+
+    suffix = "..."
+    while text:
+        shortened = text[:-1].rstrip() + suffix
+
+        if draw.textbbox(
+            (0, 0), shortened, font=font
+        )[2] <= max_width:
+            return shortened
+
+        text = text[:-1]
+
+    return suffix
 
 
 def welcomepic(pic, user, chatname, user_id, uname):
@@ -98,27 +108,53 @@ def welcomepic(pic, user, chatname, user_id, uname):
     with Image.open(BACKGROUND) as source:
         background = source.convert("RGBA")
 
+    # PROFILE PHOTO
     with Image.open(pic) as source:
         pfp = circle(source, (PHOTO_SIZE, PHOTO_SIZE))
 
-    # PROFILE PHOTO
     background.paste(
         pfp,
         PHOTO_POSITION,
         pfp
     )
 
-    # DRAW USER DETAILS
     draw = ImageDraw.Draw(background)
 
-    title_font = load_font(38)
-    info_font = load_font(27)
+    title_font = load_font(29)
+    info_font = load_font(23)
+    footer_font = load_font(21)
 
     white = (255, 255, 255, 255)
     pink = (255, 100, 220, 255)
     blue = (80, 190, 255, 255)
 
-    name_text = f"NAME: {user or 'User'}"
+    # CLEAR OLD PLACEHOLDER TEXT INSIDE THE LEFT PANEL.
+    # These coordinates are for the supplied 1536x1024
+    # welcome background. The neon border stays outside.
+    panel = (190, 460, 760, 705)
+    draw.rectangle(
+        panel,
+        fill=(5, 2, 22, 255)
+    )
+
+    panel_x = 205
+    max_width = 535
+
+    # DRAW USER DETAILS ONLY ONCE
+    draw.text(
+        (panel_x, 475),
+        "USER DETAILS",
+        font=title_font,
+        fill=pink
+    )
+
+    name_text = fit_text(
+        draw,
+        f"NAME: {user or 'User'}",
+        info_font,
+        max_width
+    )
+
     id_text = f"ID: {user_id}"
 
     username_text = (
@@ -127,37 +163,41 @@ def welcomepic(pic, user, chatname, user_id, uname):
         else "USERNAME: No username"
     )
 
-    # Left-side information panel.
-    # Adjust these coordinates if your background differs.
-    panel_x = 190
-    max_text_width = 550
-
-    draw.text(
-        (panel_x, 475),
-        "USER DETAILS",
-        font=title_font,
-        fill=pink,
-        stroke_width=1,
-        stroke_fill=white,
+    username_text = fit_text(
+        draw,
+        username_text,
+        info_font,
+        max_width
     )
 
-    details = [
-        (name_text, white, 535),
-        (id_text, blue, 590),
-        (username_text, pink, 645),
-    ]
+    draw.text(
+        (panel_x, 530),
+        name_text,
+        font=info_font,
+        fill=white
+    )
 
-    for text, color, y in details:
-        text = fit_text(
-            draw, text, info_font, max_text_width
-        )
+    draw.text(
+        (panel_x, 580),
+        id_text,
+        font=info_font,
+        fill=blue
+    )
 
-        draw.text(
-            (panel_x, y),
-            text,
-            font=info_font,
-            fill=color,
-        )
+    draw.text(
+        (panel_x, 630),
+        username_text,
+        font=info_font,
+        fill=pink
+    )
+
+    # FOOTER
+    draw.text(
+        (panel_x, 665),
+        "MADE BY BRANDED KING",
+        font=footer_font,
+        fill=pink
+    )
 
     output = os.path.join(
         DOWNLOAD_DIR,
@@ -201,7 +241,7 @@ async def greet_group(_, member: ChatMemberUpdated):
     )
 
     try:
-        # DOWNLOAD USER PROFILE PHOTO
+        # DOWNLOAD PROFILE PHOTO
         try:
             if user.photo:
                 pic = await app.download_media(
@@ -216,7 +256,11 @@ async def greet_group(_, member: ChatMemberUpdated):
         if not pic or not os.path.isfile(pic):
             pic = DEFAULT_PIC
 
-        # REMOVE PREVIOUS WELCOME MESSAGE
+        if not os.path.isfile(pic):
+            LOGGER.error("Default profile image not found: %s", pic)
+            return
+
+        # DELETE PREVIOUS WELCOME MESSAGE
         previous = temp.MELCOW.get(
             f"welcome-{chat_id}"
         )
@@ -230,7 +274,7 @@ async def greet_group(_, member: ChatMemberUpdated):
                     e
                 )
 
-        # CREATE WELCOME IMAGE
+        # CREATE IMAGE
         welcomeimg = welcomepic(
             pic,
             user.first_name or "User",
@@ -239,7 +283,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             user.username
         )
 
-        # ESCAPE HTML VALUES
+        # CAPTION
         username = (
             f"@{escape(user.username)}"
             if user.username
@@ -293,11 +337,10 @@ async def greet_group(_, member: ChatMemberUpdated):
             f"welcome-{chat_id}"
         ] = sent
 
-    except Exception as e:
+    except Exception:
         LOGGER.exception(
-            "Welcome image error for user %s: %s",
-            user.id,
-            e
+            "Welcome image error for user %s",
+            user.id
         )
 
     finally:
@@ -306,7 +349,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             try:
                 if path and os.path.isfile(path):
                     os.remove(path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -344,7 +387,7 @@ async def bot_wel(_, message):
                 log_text,
                 parse_mode=ParseMode.HTML
             )
-        except Exception as e:
-            LOGGER.error(
-                "Could not send group log: %s", e
+        except Exception:
+            LOGGER.exception(
+                "Could not send group log"
             )
