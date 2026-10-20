@@ -1,5 +1,6 @@
 import os
 import random
+import html
 from datetime import datetime, timedelta
 from telegraph import upload_file
 from PIL import Image, ImageDraw
@@ -24,17 +25,16 @@ POLICE = [
 
 def dt():
     now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M")
-    dt_list = dt_string.split(" ")
-    return dt_list
+    return [
+        now.strftime("%d/%m/%Y %H:%M"),
+        now.strftime("%d/%m/%Y"),
+    ]
 
 
 def dt_tom():
-    return (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
-
-
-tomorrow = dt_tom()
-today = datetime.now().strftime("%d/%m/%Y")
+    return (
+        datetime.now() + timedelta(days=1)
+    ).strftime("%d/%m/%Y")
 
 
 @app.on_message(filters.command("couples"))
@@ -46,18 +46,26 @@ async def ctest(_, message):
             "💖 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs."
         )
 
+    msg = None
+    output_file = f"test_{cid}.png"
+    p1 = None
+    p2 = None
+
     try:
-        await message.reply_text(
+        # GENERATING MESSAGE
+        msg = await message.reply_text(
             "<b>💞 ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ... ✨</b>",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         # GET LIST OF USERS
         list_of_users = []
 
-        async for i in app.get_chat_members(message.chat.id, limit=50):
-            if not i.user.is_bot:
-                list_of_users.append(i.user.id)
+        async for member in app.get_chat_members(
+            message.chat.id, limit=50
+        ):
+            if not member.user.is_bot:
+                list_of_users.append(member.user.id)
 
         if len(list_of_users) < 2:
             await msg.edit_text(
@@ -65,42 +73,43 @@ async def ctest(_, message):
             )
             return
 
-        c1_id = random.choice(list_of_users)
-        c2_id = random.choice(list_of_users)
-
-        while c1_id == c2_id:
-            c2_id = random.choice(list_of_users)
+        # SELECT TWO DIFFERENT USERS
+        c1_id, c2_id = random.sample(list_of_users, 2)
 
         # GET USER INFORMATION
         user1 = await app.get_users(c1_id)
         user2 = await app.get_users(c2_id)
 
-        c1_name = user1.first_name or "User"
-        c2_name = user2.first_name or "User"
-
-        N1 = user1.mention
-        N2 = user2.mention
+        c1_name = html.escape(user1.first_name or "User")
+        c2_name = html.escape(user2.first_name or "User")
 
         # GET PROFILE PHOTOS
         photo1 = (await app.get_chat(c1_id)).photo
         photo2 = (await app.get_chat(c2_id)).photo
 
         try:
+            if not photo1:
+                raise ValueError("First user has no profile photo")
+
             p1 = await app.download_media(
                 photo1.big_file_id,
-                file_name="pfp.png"
+                file_name="pfp.png",
             )
         except Exception:
             p1 = "BrandrdXMusic/assets/upic.png"
 
         try:
+            if not photo2:
+                raise ValueError("Second user has no profile photo")
+
             p2 = await app.download_media(
                 photo2.big_file_id,
-                file_name="pfp1.png"
+                file_name="pfp1.png",
             )
         except Exception:
             p2 = "BrandrdXMusic/assets/upic.png"
 
+        # OPEN IMAGES
         img1 = Image.open(p1).convert("RGBA")
         img2 = Image.open(p2).convert("RGBA")
 
@@ -108,92 +117,90 @@ async def ctest(_, message):
             "BrandrdXMusic/assets/cppicbranded.jpg"
         ).convert("RGBA")
 
-        # RESIZE PROFILE PHOTOS
-        img1 = img1.resize((437, 437))
-        img2 = img2.resize((437, 437))
+        # PROFILE PHOTO SIZE
+        # Background size: 1536 x 1024
+        # Circle positions estimated for the supplied background
+        photo_size = 340
+
+        img1 = img1.resize(
+            (photo_size, photo_size),
+            Image.Resampling.LANCZOS,
+        )
+        img2 = img2.resize(
+            (photo_size, photo_size),
+            Image.Resampling.LANCZOS,
+        )
 
         # CIRCULAR MASK FOR FIRST PHOTO
-        mask = Image.new("L", img1.size, 0)
+        mask = Image.new("L", (photo_size, photo_size), 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse(
-            (0, 0) + img1.size,
-            fill=255
+            (0, 0, photo_size - 1, photo_size - 1),
+            fill=255,
         )
 
         # CIRCULAR MASK FOR SECOND PHOTO
-        mask1 = Image.new("L", img2.size, 0)
+        mask1 = Image.new("L", (photo_size, photo_size), 0)
         draw = ImageDraw.Draw(mask1)
         draw.ellipse(
-            (0, 0) + img2.size,
-            fill=255
+            (0, 0, photo_size - 1, photo_size - 1),
+            fill=255,
         )
 
         img1.putalpha(mask)
         img2.putalpha(mask1)
 
-        # ORIGINAL PHOTO POSITIONS UNCHANGED
-        img.paste(img1, (116, 160), img1)
-        img.paste(img2, (789, 160), img2)
+        # FIXED PHOTO POSITIONS FOR THE SUPPLIED BACKGROUND
+        img.paste(img1, (235, 316), img1)
+        img.paste(img2, (955, 316), img2)
 
-        img.save(f"test_{cid}.png")
+        # SAVE FINAL IMAGE
+        img.save(output_file)
 
-        # UPDATE DATE WHEN COMMAND IS USED
-        tomorrow = (
-            datetime.now() + timedelta(days=1)
-        ).strftime("%d/%m/%Y")
-
+        # UPDATE DATE ON EVERY COMMAND
+        tomorrow = dt_tom()
         today = datetime.now().strftime("%d/%m/%Y")
 
-        # COLOURFUL STYLE CAPTION
+        # COLOURFUL CAPTION
         TXT = f"""<b><blockquote>
 💖✨ ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs ✨💖
-
 ━━━━━━━━━━━━━━━━━━
-
 👑 <a href="tg://openmessage?user_id={c1_id}">{c1_name}</a>
           💞 ➕ 💞
 👑 <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
-
 ━━━━━━━━━━━━━━━━━━
-
 💘 ᴍᴀᴅᴇ ғᴏʀ ᴇᴀᴄʜ ᴏᴛʜᴇʀ 💘
-
 💕 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
 🌟 sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow} 🌟
-
 ━━━━━━━━━━━━━━━━━━
 
 🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀
 </blockquote></b>"""
 
+        # SEND COUPLES IMAGE
         await message.reply_photo(
-            f"test_{cid}.png",
+            output_file,
             caption=TXT,
-            parse_mode=enums.ParseMode.HTML,
+            parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(POLICE),
         )
 
         await msg.delete()
+        msg = None
 
-        a = upload_file(f"test_{cid}.png")
+        # UPLOAD TO TELEGRAPH
+        a = upload_file(output_file)
 
         for x in a:
             img_url = "https://graph.org/" + x
+
             couple = {
                 "c1_id": c1_id,
                 "c2_id": c2_id,
             }
 
+            # Original database saving remains disabled
             # await save_couple(cid, today, couple, img_url)
 
-        # elif is_selected:
-        #     ...
-
     except Exception as e:
-        print(f"Couples Error: {e}")
-
-    finally:
-        try:
-            os.remove("./downloads/pfp.png")
-        except:
-            pass
+        print(f"Couples Error
