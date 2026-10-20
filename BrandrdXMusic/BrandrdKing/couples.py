@@ -2,16 +2,17 @@ import os
 import random
 import html
 from datetime import datetime, timedelta
+
 from telegraph import upload_file
 from PIL import Image, ImageDraw
 from pyrogram import *
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.enums import *
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ChatType, ParseMode
 
 # BOT FILE NAME
 from BrandrdXMusic import app as app
 from BrandrdXMusic.mongo.couples_db import _get_image, get_couple
+
 
 POLICE = [
     [
@@ -62,7 +63,7 @@ async def ctest(_, message):
         list_of_users = []
 
         async for member in app.get_chat_members(
-            message.chat.id, limit=50
+            cid, limit=50
         ):
             if not member.user.is_bot:
                 list_of_users.append(member.user.id)
@@ -110,16 +111,19 @@ async def ctest(_, message):
             p2 = "BrandrdXMusic/assets/upic.png"
 
         # OPEN IMAGES
-        img1 = Image.open(p1).convert("RGBA")
-        img2 = Image.open(p2).convert("RGBA")
+        with Image.open(p1) as source:
+            img1 = source.convert("RGBA")
 
-        img = Image.open(
+        with Image.open(p2) as source:
+            img2 = source.convert("RGBA")
+
+        with Image.open(
             "BrandrdXMusic/assets/cppicbranded.jpg"
-        ).convert("RGBA")
+        ) as source:
+            img = source.convert("RGBA")
 
-        # PROFILE PHOTO SIZE
-        # Background size: 1536 x 1024
-        # Circle positions estimated for the supplied background
+        # PROFILE PHOTO SIZE AND POSITIONS
+        # Coordinates are for the supplied 1536 x 1024 background.
         photo_size = 340
 
         img1 = img1.resize(
@@ -131,7 +135,7 @@ async def ctest(_, message):
             Image.Resampling.LANCZOS,
         )
 
-        # CIRCULAR MASK FOR FIRST PHOTO
+        # CIRCULAR MASK
         mask = Image.new("L", (photo_size, photo_size), 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse(
@@ -139,25 +143,18 @@ async def ctest(_, message):
             fill=255,
         )
 
-        # CIRCULAR MASK FOR SECOND PHOTO
-        mask1 = Image.new("L", (photo_size, photo_size), 0)
-        draw = ImageDraw.Draw(mask1)
-        draw.ellipse(
-            (0, 0, photo_size - 1, photo_size - 1),
-            fill=255,
-        )
-
         img1.putalpha(mask)
-        img2.putalpha(mask1)
+        img2.putalpha(mask.copy())
 
-        # FIXED PHOTO POSITIONS FOR THE SUPPLIED BACKGROUND
+        # PASTE PROFILE PHOTOS
+        # Adjust these coordinates if the source background differs.
         img.paste(img1, (235, 316), img1)
         img.paste(img2, (955, 316), img2)
 
-        # SAVE FINAL IMAGE
-        img.save(output_file)
+        # SAVE IMAGE
+        img.save(output_file, format="PNG")
 
-        # UPDATE DATE ON EVERY COMMAND
+        # CALCULATE TOMORROW'S DATE AT COMMAND TIME
         tomorrow = dt_tom()
         today = datetime.now().strftime("%d/%m/%Y")
 
@@ -170,10 +167,10 @@ async def ctest(_, message):
 👑 <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
 ━━━━━━━━━━━━━━━━━━
 💘 ᴍᴀᴅᴇ ғᴏʀ ᴇᴀᴄʜ ᴏᴛʜᴇʀ 💘
+
 💕 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
 🌟 sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow} 🌟
 ━━━━━━━━━━━━━━━━━━
-
 🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀
 </blockquote></b>"""
 
@@ -185,13 +182,21 @@ async def ctest(_, message):
             reply_markup=InlineKeyboardMarkup(POLICE),
         )
 
-        await msg.delete()
+        # DELETE GENERATING MESSAGE
+        try:
+            await msg.delete()
+        except Exception:
+            pass
         msg = None
 
         # UPLOAD TO TELEGRAPH
-        a = upload_file(output_file)
+        # upload_file is synchronous, so run it in a worker thread.
+        import asyncio
+        uploaded_files = await asyncio.to_thread(
+            upload_file, output_file
+        )
 
-        for x in a:
+        for x in uploaded_files:
             img_url = "https://graph.org/" + x
 
             couple = {
@@ -199,8 +204,31 @@ async def ctest(_, message):
                 "c2_id": c2_id,
             }
 
-            # Original database saving remains disabled
+            # Database saving remains disabled, as in your original code.
             # await save_couple(cid, today, couple, img_url)
 
     except Exception as e:
-        print(f"Couples Error
+        print(f"Couples Error: {e}")
+
+        if msg:
+            try:
+                await msg.edit_text(
+                    "❌ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ ɢᴇɴᴇʀᴀᴛɪᴏɴ ғᴀɪʟᴇᴅ."
+                )
+            except Exception:
+                pass
+
+    finally:
+        # CLEAN UP TEMPORARY FILES
+        for path in (
+            p1,
+            p2,
+            output_file,
+            "./downloads/pfp.png",
+            "./downloads/pfp1.png",
+        ):
+            try:
+                if path and os.path.isfile(path):
+                    os.remove(path)
+            except Exception:
+                pass
