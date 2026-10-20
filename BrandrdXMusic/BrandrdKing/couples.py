@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 from pyrogram import *
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.enums import *
+from pyrogram.enums import ParseMode
 
 # BOT FILE NAME
 from BrandrdXMusic import app as app
@@ -194,4 +195,5 @@ async def ctest(_, message):
     finally:
         try:
             os.remove("./downloads/pfp.png")
-        except
+        except:
+            pass
