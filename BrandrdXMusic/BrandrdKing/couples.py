@@ -1,10 +1,11 @@
 import os
 import random
 import html
+import asyncio
 from datetime import datetime, timedelta
 
 from telegraph import upload_file
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from pyrogram import *
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.enums import ChatType, ParseMode
@@ -38,6 +39,51 @@ def dt_tom():
     ).strftime("%d/%m/%Y")
 
 
+def get_font(size, bold=False):
+    """Load a readable font with a fallback."""
+    fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
+
+    for font_path in fonts:
+        try:
+            return ImageFont.truetype(font_path, size)
+        except OSError:
+            continue
+
+    return ImageFont.load_default()
+
+
+def fit_font(draw, text, max_width, size, bold=True):
+    """Fit text inside a maximum width."""
+    while size > 12:
+        font = get_font(size, bold)
+        bbox = draw.textbbox((0, 0), text, font=font)
+
+        if bbox[2] - bbox[0] <= max_width:
+            return font
+
+        size -= 2
+
+    return get_font(size, bold)
+
+
+def draw_centered_text(draw, center_x, center_y, text, font, fill):
+    """Draw text using its visual center."""
+    draw.text(
+        (center_x, center_y),
+        text,
+        font=font,
+        fill=fill,
+        anchor="mm",
+    )
+
+
 @app.on_message(filters.command("couples"))
 async def ctest(_, message):
     cid = message.chat.id
@@ -62,9 +108,7 @@ async def ctest(_, message):
         # GET LIST OF USERS
         list_of_users = []
 
-        async for member in app.get_chat_members(
-            cid, limit=50
-        ):
+        async for member in app.get_chat_members(cid, limit=50):
             if not member.user.is_bot:
                 list_of_users.append(member.user.id)
 
@@ -83,6 +127,22 @@ async def ctest(_, message):
 
         c1_name = html.escape(user1.first_name or "User")
         c2_name = html.escape(user2.first_name or "User")
+
+        # ACTUAL USERNAMES FOR IMAGE
+        c1_username = (
+            f"@{user1.username}"
+            if user1.username
+            else user1.first_name or "User"
+        )
+        c2_username = (
+            f"@{user2.username}"
+            if user2.username
+            else user2.first_name or "User"
+        )
+
+        # DATE FOR IMAGE AND CAPTION
+        tomorrow = dt_tom()
+        today = datetime.now().strftime("%d/%m/%Y")
 
         # GET PROFILE PHOTOS
         photo1 = (await app.get_chat(c1_id)).photo
@@ -137,8 +197,8 @@ async def ctest(_, message):
 
         # CIRCULAR MASK
         mask = Image.new("L", (photo_size, photo_size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse(
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.ellipse(
             (0, 0, photo_size - 1, photo_size - 1),
             fill=255,
         )
@@ -147,16 +207,150 @@ async def ctest(_, message):
         img2.putalpha(mask.copy())
 
         # PASTE PROFILE PHOTOS
-        # Adjust these coordinates if the source background differs.
         img.paste(img1, (235, 316), img1)
         img.paste(img2, (955, 316), img2)
 
+        # DRAW ACTUAL USERNAMES AND DATE ON BACKGROUND
+        draw = ImageDraw.Draw(img)
+
+        # ---------------------------------------------
+        # FIX 1: REPLACE STATIC @User1 AND @User2 LABELS
+        # ---------------------------------------------
+
+        # Cover existing placeholder text within the two labels.
+        draw.rounded_rectangle(
+            (260, 660, 540, 720),
+            radius=24,
+            fill=(35, 0, 40, 255),
+            outline=(255, 45, 210, 255),
+            width=3,
+        )
+
+        draw.rounded_rectangle(
+            (975, 660, 1275, 720),
+            radius=24,
+            fill=(0, 15, 45, 255),
+            outline=(35, 160, 255, 255),
+            width=3,
+        )
+
+        # Actual Telegram usernames, or first name if username is absent.
+        name1_font = fit_font(
+            draw, c1_username, 220, 27, True
+        )
+        name2_font = fit_font(
+            draw, c2_username, 240, 27, True
+        )
+
+        draw_centered_text(
+            draw,
+            400,
+            690,
+            c1_username,
+            name1_font,
+            (255, 235, 255, 255),
+        )
+
+        draw_centered_text(
+            draw,
+            1125,
+            690,
+            c2_username,
+            name2_font,
+            (235, 245, 255, 255),
+        )
+
+        # ---------------------------------------------
+        # FIX 2: REPLACE STATIC COUPLE NAMES AT BOTTOM
+        # ---------------------------------------------
+
+        # Cover the old @User1 + @User2 = heart text.
+        draw.rounded_rectangle(
+            (405, 760, 1130, 875),
+            radius=25,
+            fill=(12, 0, 28, 245),
+            outline=(140, 40, 220, 255),
+            width=3,
+        )
+
+        bottom_font_size = 40
+        bottom_font1 = fit_font(
+            draw,
+            c1_username,
+            260,
+            bottom_font_size,
+            True,
+        )
+        bottom_font2 = fit_font(
+            draw,
+            c2_username,
+            260,
+            bottom_font_size,
+            True,
+        )
+
+        # Use separate colors for both partners.
+        draw_centered_text(
+            draw,
+            570,
+            818,
+            c1_username,
+            bottom_font1,
+            (255, 70, 220, 255),
+        )
+
+        draw_centered_text(
+            draw,
+            755,
+            818,
+            "+",
+            get_font(42, True),
+            (255, 255, 255, 255),
+        )
+
+        draw_centered_text(
+            draw,
+            925,
+            818,
+            c2_username,
+            bottom_font2,
+            (50, 190, 255, 255),
+        )
+
+        # ---------------------------------------------
+        # FIX 3: DYNAMIC NEXT COUPLES DATE
+        # ---------------------------------------------
+
+        # Cover the old fixed date and date label.
+        draw.rounded_rectangle(
+            (460, 885, 1080, 970),
+            radius=18,
+            fill=(10, 0, 30, 245),
+        )
+
+        date_label_font = get_font(20, True)
+        date_font = get_font(34, True)
+
+        draw_centered_text(
+            draw,
+            770,
+            912,
+            "NEXT COUPLES WILL BE SELECTED ON",
+            date_label_font,
+            (255, 255, 255, 255),
+        )
+
+        draw_centered_text(
+            draw,
+            770,
+            950,
+            tomorrow,
+            date_font,
+            (255, 75, 220, 255),
+        )
+
         # SAVE IMAGE
         img.save(output_file, format="PNG")
-
-        # CALCULATE TOMORROW'S DATE AT COMMAND TIME
-        tomorrow = dt_tom()
-        today = datetime.now().strftime("%d/%m/%Y")
 
         # COLOURFUL CAPTION
         TXT = f"""<b><blockquote>
@@ -184,11 +378,10 @@ sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow}
             await msg.delete()
         except Exception:
             pass
+
         msg = None
 
         # UPLOAD TO TELEGRAPH
-        # upload_file is synchronous, so run it in a worker thread.
-        import asyncio
         uploaded_files = await asyncio.to_thread(
             upload_file, output_file
         )
