@@ -23,11 +23,11 @@ from BrandrdXMusic.utils.database import (
 logger = LOGGER("BrandrdXMusic.BrandrdKing.botleft")
 
 PHOTO = [
-    "https://graph.org/file/872dc8af2a36bed43b9b6.jpg",
-    "https://graph.org/file/f4b34351a59061ba1c61b.jpg",
-    "https://graph.org/file/3fb3f4c8a1250c6a50af1.jpg",
-    "https://graph.org/file/eabab7e8a3e5df87a0b04.jpg",
-    "https://graph.org/file/427f4869a158126957747.jpg",
+    "https://imgdb.io/i/qi_QJx0.jpg",
+    "https://imgdb.io/i/jgqv2mQ.jpg",
+    "https://imgdb.io/i/jjJShXQ.jpg",
+    "https://imgdb.io/i/HTo_3F0.jpg",
+    "https://imgdb.io/i/UX0rVaE.jpg",
 ]
 
 # Prevent duplicate cleanup for the same group.
