@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 from telegraph import upload_file
+from pyrogram.enums import ButtonStyle
 from PIL import Image, ImageDraw, ImageFont
 from pyrogram import *
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -20,6 +21,7 @@ POLICE = [
         InlineKeyboardButton(
             text="🥀 ᴍʏ ᴄᴜᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ 🥀",
             url="https://t.me/BRANDED_PAID_CC",
+            style=ButtonStyle.DANGER,
         ),
     ],
 ]
