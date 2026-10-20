@@ -160,14 +160,14 @@ async def ctest(_, message):
 
         # COLOURFUL CAPTION
         TXT = f"""<b><blockquote>
-💖 ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs ✨
+ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs
 ━━━━━━━━━━━━━━━━━━
-👑 <a href="tg://openmessage?user_id={c1_id}">{c1_name}</a>
-          💞 ➕ 💞
-👑 <a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
+<a href="tg://openmessage?user_id={c1_id}">{c1_name}</a>
+            +
+<a href="tg://openmessage?user_id={c2_id}">{c2_name}</a>
 ━━━━━━━━━━━━━━━━━━
-💘 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
-🌟 sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow} 🌟
+ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ
+sᴇʟᴇᴄᴛᴇᴅ ᴏɴ: {tomorrow}
 ━━━━━━━━━━━━━━━━━━
 </blockquote></b>"""
 
