@@ -153,8 +153,8 @@ async def init():
     await Hotty.decorators()
 
     LOGGER("BrandrdXMusic").info(
-        "ᴅʀᴏᴘ ʏᴏᴜʀ ɢɪʀʟꜰʀɪᴇɴᴅ'ꜱ ɴᴜᴍʙᴇʀ ᴀᴛ @BRANDED_PAID_CC ᴊᴏɪɴ @BRANDRD_BOT , @BRANDEDKING8 ꜰᴏʀ ᴀɴʏ ɪꜱꜱᴜᴇꜱ".
-    )
+    "ᴅʀᴏᴘ ʏᴏᴜʀ ɢɪʀʟꜰʀɪᴇɴᴅ'ꜱ ɴᴜᴍʙᴇʀ ᴀᴛ @BRANDED_PAID_CC ᴊᴏɪɴ @BRANDRD_BOT , @BRANDEDKING8 ꜰᴏʀ ᴀɴʏ ɪꜱꜱᴜᴇꜱ"
+            )
 
     try:
         await idle()
