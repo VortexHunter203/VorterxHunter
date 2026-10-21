@@ -57,7 +57,7 @@
       "value": "",
       "required": true
     },
-    "API_URL": {
+    "PRIMARY_API_URL": {
       "description": "Primary YouTube Stream API URL",
       "value": "https://truemorning.up.railway.app",
       "required": true
@@ -69,7 +69,7 @@
     },
     "API_KEY_FALLBACK": {
       "description": "Get API key from Telegram @BRANDEDKING2",
-      "value": "",
+      "value": "ShrutiBots8dd7YecpYDzZ8TjOzDeV",
       "required": true
     }
   },
