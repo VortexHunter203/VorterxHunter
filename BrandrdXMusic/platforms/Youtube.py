@@ -31,6 +31,9 @@ API_LIST = [
 
 DOWNLOAD_DIR = "downloads"
 
+def is_external_path(path):
+    return bool(path and os.path.isfile(path))
+
 
 def time_to_seconds(time):
     stringt = str(time)
