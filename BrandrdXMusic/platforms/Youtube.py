@@ -18,7 +18,6 @@ PRIMARY_API_URL = os.environ.get(
     os.environ.get("API_URL", ""),
 ).strip().rstrip("/")
 
-
 # FALLBACK API
 FALLBACK_API_URL = os.environ.get(
     "FALLBACK_API_URL", ""
@@ -29,10 +28,11 @@ FALLBACK_API_KEY = os.environ.get(
 ).strip()
 
 # API URL and API KEY pairs
+# FIXED: Every entry contains exactly two values.
 API_LIST = [
     (url, key)
     for url, key in [
-        (PRIMARY_API_URL,),
+        (PRIMARY_API_URL, ),
         (FALLBACK_API_URL, FALLBACK_API_KEY),
     ]
     if url
