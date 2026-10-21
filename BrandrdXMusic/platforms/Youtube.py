@@ -19,7 +19,7 @@ PRIMARY_API_URL = os.environ.get(
 ).strip().rstrip("/")
 
 PRIMARY_API_KEY = os.environ.get(
-    "FALLBACK_API_KEY", ""
+    "PRIMARY_API_KEY", ""
 ).strip()
 
 # FALLBACK API
