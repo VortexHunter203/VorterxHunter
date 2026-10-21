@@ -1,6 +1,7 @@
 import asyncio
 import importlib
 import importlib.util
+import logging
 import pkgutil
 
 import config
@@ -48,10 +49,6 @@ def load_brandrdking_modules():
             )
             continue
 
-        LOGGER("BrandrdKing").info(
-            "Loading modules from %s", package_name
-        )
-
         for module in pkgutil.iter_modules(
             package.__path__, prefix=package.__name__ + "."
         ):
@@ -61,9 +58,7 @@ def load_brandrdking_modules():
             try:
                 importlib.import_module(module.name)
                 loaded += 1
-                LOGGER("BrandrdKing").info(
-                    "Loaded module: %s", module.name
-                )
+
             except Exception:
                 LOGGER("BrandrdKing").exception(
                     "Failed to load module: %s", module.name
@@ -72,11 +67,7 @@ def load_brandrdking_modules():
         # Avoid importing the same package twice.
         break
 
-    if loaded:
-        LOGGER("BrandrdKing").info(
-            "Successfully loaded %s BrandrdKing modules.", loaded
-        )
-    else:
+    if not loaded:
         LOGGER("BrandrdKing").warning(
             "No BrandrdKing modules loaded. Check the folder path."
         )
@@ -162,7 +153,7 @@ async def init():
     await Hotty.decorators()
 
     LOGGER("BrandrdXMusic").info(
-        "BrandrdXMusic and BrandrdKing startup completed."
+        "ᴅʀᴏᴘ ʏᴏᴜʀ ɢɪʀʟꜰʀɪᴇɴᴅ'ꜱ ɴᴜᴍʙᴇʀ ᴀᴛ @BRANDED_PAID_CC ᴊᴏɪɴ @BRANDRD_BOT , @BRANDEDKING8 ꜰᴏʀ ᴀɴʏ ɪꜱꜱᴜᴇꜱ".
     )
 
     try:
@@ -176,6 +167,9 @@ async def init():
             "Stopping BrandrdXMusic bot..."
         )
 
+
 if __name__ == "__main__":
+    logging.getLogger("telethon.crypto.aes").setLevel(logging.WARNING)
+
     loop = asyncio.get_event_loop()
     loop.run_until_complete(init())
