@@ -8,6 +8,7 @@ from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls.exceptions import NotInCallError
+from pyrogram.errors import FloodWait
 from BrandrdXMusic.BrandrdKing.vclogger import register_vclogger
 from pytgcalls import PyTgCalls, filters
 from pytgcalls.exceptions import NoActiveGroupCall
@@ -213,20 +214,71 @@ class Call(PyTgCalls):
         return lock
 
     async def _assistant_join(self, assistant, chat_id: int, stream, _):
+    try:
+        await assistant.play(
+            chat_id,
+            stream,
+            config=GroupCallConfig(auto_start=False),
+        )
+
+    except FloodWait as e:
+        wait_time = int(e.value) + 1
+
+        LOGGER.warning(
+            "FloodWait while joining voice chat %s. "
+            "Waiting %s seconds before retry.",
+            chat_id,
+            wait_time,
+        )
+
+        await asyncio.sleep(wait_time)
+
         try:
             await assistant.play(
-                chat_id, stream, config=GroupCallConfig(auto_start=False)
+                chat_id,
+                stream,
+                config=GroupCallConfig(auto_start=False),
             )
+
+        except FloodWait as retry_error:
+            LOGGER.warning(
+                "FloodWait persisted for chat %s. "
+                "Telegram requested another wait of %s seconds.",
+                chat_id,
+                int(retry_error.value),
+            )
+            raise AssistantErr(
+                f"Telegram rate limit. Please try again after "
+                f"{int(retry_error.value) + 1} seconds."
+            )
+
         except NoActiveGroupCall:
-            LOGGER(__name__).error(
-                "_assistant_join: unhandled exception", exc_info=True
+            LOGGER.error(
+                "_assistant_join: no active group call",
+                exc_info=True,
             )
             raise AssistantErr(_["call_8"])
+
         except TelegramServerError:
-            LOGGER(__name__).error(
-                "_assistant_join: unhandled exception", exc_info=True
+            LOGGER.error(
+                "_assistant_join: Telegram server error",
+                exc_info=True,
             )
             raise AssistantErr(_["call_10"])
+
+    except NoActiveGroupCall:
+        LOGGER.error(
+            "_assistant_join: no active group call",
+            exc_info=True,
+        )
+        raise AssistantErr(_["call_8"])
+
+    except TelegramServerError:
+        LOGGER.error(
+            "_assistant_join: Telegram server error",
+            exc_info=True,
+        )
+        raise AssistantErr(_["call_10"])
 
     async def _run_prejoin(self, chat_id: int, video: bool = False):
         assistant = await group_assistant(self, chat_id)
