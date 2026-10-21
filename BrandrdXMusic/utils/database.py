@@ -22,6 +22,7 @@ skipdb = mongodb.skipmode
 autoplaydb = mongodb.autoplay
 sudoersdb = mongodb.sudoers
 usersdb = mongodb.tgusersdb
+queriesdb = mongodb.queries
 
 # Shifting to memory [mongo sucks often]
 active = []
