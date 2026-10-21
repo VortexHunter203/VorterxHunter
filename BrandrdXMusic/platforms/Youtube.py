@@ -12,20 +12,20 @@ import aiohttp
 # PRIMARY API
 PRIMARY_API_URL = os.environ.get(
     "PRIMARY_API_URL",
-    os.environ.get("API_URL", "https://truemorning.up.railway.app")
+    os.environ.get("API_URL", "")
 ).strip().rstrip("/")
 
 # FALLBACK API
 FALLBACK_API_URL = os.environ.get(
-    "FALLBACK_API_URL", "https://api.shrutibots.in"
+    "FALLBACK_API_URL", ""
 ).strip().rstrip("/")
 
 FALLBACK_API_KEY = os.environ.get(
-    "FALLBACK_API_KEY", "ShrutiBots8dd7YecpYDzZ8TjOzDeV"
+    "FALLBACK_API_KEY", ""
 ).strip()
 
 API_LIST = [
-    (PRIMARY_API_URL, ""),
+    (PRIMARY_API_URL),
     (FALLBACK_API_URL, FALLBACK_API_KEY),
 ]
 
