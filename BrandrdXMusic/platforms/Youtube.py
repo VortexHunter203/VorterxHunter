@@ -31,8 +31,8 @@ FALLBACK_API_URL = os.environ.get(
 API_LIST = [
     (url, key)
     for url, key in [
-        (PRIMARY_API_URL, ""),
-        (FALLBACK_API_URL, FALLBACK_API_KEY),
+        (PRIMARY_API_URL, PRIMARY_API_KEY),
+        (FALLBACK_API_URL),
     ]
     if url
 ]
