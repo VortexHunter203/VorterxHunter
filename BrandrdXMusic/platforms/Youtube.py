@@ -32,7 +32,7 @@ API_LIST = [
     (FALLBACK_API_URL, FALLBACK_API_KEY),
 ]
 
-DOWNLOAD_DIR = "downloads
+DOWNLOAD_DIR = "downloads"
 
 def _env_dir(name: str) -> str:
     value = os.environ.get(name, "").strip()
