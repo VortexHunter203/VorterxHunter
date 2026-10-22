@@ -1,4 +1,5 @@
 import os
+import asyncio
 from PIL import Image, ImageDraw, ImageFont
 from pyrogram import *
 from pyrogram.types import *
@@ -51,6 +52,18 @@ class temp:
     MELCOW = {}
     U_NAME = None
     B_NAME = None
+
+
+async def auto_delete_welcome(message):
+    """Automatically delete welcome message after 10 seconds."""
+    await asyncio.sleep(10)
+
+    try:
+        await message.delete()
+    except Exception as e:
+        LOGGER.warning(
+            "Welcome message auto-delete failed: %s", e
+        )
 
 
 def circle(pfp, size=(400, 400)):
@@ -336,6 +349,11 @@ async def greet_group(_, member: ChatMemberUpdated):
             f"welcome-{chat_id}"
         ] = sent
 
+        # AUTO DELETE AFTER 10 SECONDS
+        asyncio.create_task(
+            auto_delete_welcome(sent)
+        )
+
     except Exception:
         LOGGER.exception(
             "Welcome image error for user %s",
@@ -395,4 +413,4 @@ async def bot_wel(_, message):
         except Exception:
             LOGGER.exception(
                 "Could not send group log"
-    )
+)
