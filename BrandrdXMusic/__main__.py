@@ -2,7 +2,6 @@ import asyncio
 import importlib
 import importlib.util
 import logging
-import pkgutil
 
 import config
 from pyrogram import idle
@@ -14,63 +13,6 @@ from BrandrdXMusic.misc import sudo
 from BrandrdXMusic.plugins import ALL_MODULES
 from BrandrdXMusic.utils.database import get_banned_users, get_gbanned
 from config import BANNED_USERS
-
-
-# --------------------------------------------- #
-# LOAD BRANDRDXMUSIC + BRANDRDKING PLUGINS
-# --------------------------------------------- #
-
-def load_brandrdking_modules():
-    loaded = 0
-
-    # Supports either folder location:
-    # BrandrdXMusic/BrandrdKing/
-    # BrandrdKing/ (repository root)
-
-    package_names = [
-        "BrandrdXMusic.BrandrdKing",
-        "BrandrdKing",
-    ]
-
-    for package_name in package_names:
-        try:
-            spec = importlib.util.find_spec(package_name)
-        except (ImportError, ModuleNotFoundError, ValueError):
-            spec = None
-
-        if spec is None or not spec.submodule_search_locations:
-            continue
-
-        try:
-            package = importlib.import_module(package_name)
-        except Exception:
-            LOGGER("BrandrdKing").exception(
-                "Could not import package %s", package_name
-            )
-            continue
-
-        for module in pkgutil.iter_modules(
-            package.__path__, prefix=package.__name__ + "."
-        ):
-            if module.ispkg:
-                continue
-
-            try:
-                importlib.import_module(module.name)
-                loaded += 1
-
-            except Exception:
-                LOGGER("BrandrdKing").exception(
-                    "Failed to load module: %s", module.name
-                )
-
-        # Avoid importing the same package twice.
-        break
-
-    if not loaded:
-        LOGGER("BrandrdKing").warning(
-            "No BrandrdKing modules loaded. Check the folder path."
-        )
 
 
 # --------------------------------------------- #
