@@ -1,6 +1,4 @@
 import asyncio
-import importlib
-import importlib.util
 import logging
 
 import config
