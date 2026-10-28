@@ -1,6 +1,6 @@
 import asyncio
 import random
-
+from html import escape
 from pyrogram import enums, filters
 from pyrogram.errors import (
     ChannelInvalid,
