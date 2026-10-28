@@ -1,6 +1,3 @@
-ticipant,
-)
-
 from pyrogram.types import Message
 
 from config import LOGGER_ID
