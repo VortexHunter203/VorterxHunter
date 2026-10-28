@@ -61,11 +61,6 @@
       "description": "Primary YouTube Stream API URL",
       "value": "https://api.shrutibots.in",
       "required": true
-    },
-    "API_KEY": {
-      "description": "Get API key from Telegram @BRANDEDKING2",
-      "value": "ShrutiBots8dd7YecpYDzZ8TjOzDeV",
-      "required": true
     }
   },
   "buildpacks": [
