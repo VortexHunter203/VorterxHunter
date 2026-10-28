@@ -8,9 +8,29 @@ from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
 import aiohttp
 
-API_URL = os.getenv("API_URL", "https://truemorning.up.railway.app").rstrip("/")
+API_URL = os.getenv("API_URL", "").rstrip("/")
 
 DOWNLOAD_DIR = "downloads"
+
+
+def _env_dir(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    return os.path.abspath(os.path.expanduser(value)) if value else ""
+
+
+AUDIO_DOWNLOAD_PATH = _env_dir("AUDIO_DOWNLOAD_PATH")
+VIDEO_DOWNLOAD_PATH = _env_dir("VIDEO_DOWNLOAD_PATH")
+
+
+def is_external_path(path) -> bool:
+    if not path:
+        return False
+
+    full = os.path.abspath(str(path))
+    for base in (AUDIO_DOWNLOAD_PATH, VIDEO_DOWNLOAD_PATH):
+        if base and (full == base or full.startswith(base + os.sep)):
+            return True
+    return False
 
 AUTOPLAY_REQUEST_TIMEOUT = 20
 AUTOPLAY_MAX_RETRIES = 3
