@@ -9,6 +9,7 @@ from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls.exceptions import NotInCallError
 from pyrogram.errors import FloodWait
+from BrandrdXMusic.plugins.BrandrdKing.vclogger import register_vclogger
 from pytgcalls import PyTgCalls, filters
 from pytgcalls.exceptions import NoActiveGroupCall
 from pytgcalls.types import (
