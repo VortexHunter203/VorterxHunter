@@ -89,17 +89,16 @@ START_IMG_URL = getenv(
 PING_IMG_URL = getenv(
     "PING_IMG_URL", "https://imgdb.io/i/Eh92Ie0.jpg"
 )
-PLAYLIST_IMG_URL = "https://te.legra.ph/file/14eb59ea7d31229d8d751.jpg"
-STATS_IMG_URL = "https://imgdb.io/i/Nr2Fvtc.jpg"
-TELEGRAM_AUDIO_URL = "https://te.legra.ph/file/923c1faac33d8c70335dc.jpg"
-TELEGRAM_VIDEO_URL = "https://te.legra.ph/file/6c66f8b192532fe758e82.jpg"
-STREAM_IMG_URL = "https://te.legra.ph/file/ebc4dc6357be06e08a3ed.jpg"
-SOUNCLOUD_IMG_URL = "https://te.legra.ph/file/d339f390ec168c19879c6.jpg"
-YOUTUBE_IMG_URL = "https://te.legra.ph/file/ebc4dc6357be06e08a3ed.jpg"
-SPOTIFY_ARTIST_IMG_URL = "https://te.legra.ph/file/5f9fb5bba66021c782d96.jpg"
-SPOTIFY_ALBUM_IMG_URL = "https://te.legra.ph/file/affe0afec5c7ad63676a4.jpg"
-SPOTIFY_PLAYLIST_IMG_URL = "https://te.legra.ph/file/3c446e8dee78ed0ca62ff.jpg"
-
+PLAYLIST_IMG_URL = "https://imgdb.io/i/46apElg.jpg"
+STATS_IMG_URL = "https://imgdb.io/i/XArO4l8.jpg"
+TELEGRAM_AUDIO_URL = "https://imgdb.io/i/X-6L38g.jpg"
+TELEGRAM_VIDEO_URL = "https://imgdb.io/i/qi_QJx0.jpg"
+STREAM_IMG_URL = "https://imgdb.io/i/jgqv2mQ.jpg"
+SOUNCLOUD_IMG_URL = "https://imgdb.io/i/jjJShXQ.jpg"
+YOUTUBE_IMG_URL = "https://imgdb.io/i/HTo_3F0.jpg"
+SPOTIFY_ARTIST_IMG_URL = "https://imgdb.io/i/UX0rVaE.jpg"
+SPOTIFY_ALBUM_IMG_URL = "https://imgdb.io/i/O3m-KbU.jpg"
+SPOTIFY_PLAYLIST_IMG_URL = "https://imgdb.io/i/2hO70lw.jpg"
 
 def time_to_seconds(time):
     stringt = str(time)
