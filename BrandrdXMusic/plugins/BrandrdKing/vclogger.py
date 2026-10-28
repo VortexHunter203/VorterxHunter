@@ -6,6 +6,7 @@ from pyrogram import enums, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from BrandrdXMusic.BrandrdKing.vclogger import register_vclogger
 
 from pytgcalls import filters as call_filters
 from pytgcalls.types import (
