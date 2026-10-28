@@ -65,9 +65,6 @@ async def init():
         "Successfully imported music bot modules."
     )
 
-    # Load BrandrdKing commands.
-    load_brandrdking_modules()
-
     await userbot.start()
     await Hotty.start()
 
