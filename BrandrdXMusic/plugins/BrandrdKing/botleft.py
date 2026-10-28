@@ -1,3 +1,13 @@
+import asyncio
+import random
+
+from pyrogram import enums, filters
+from pyrogram.errors import (
+    ChannelInvalid,
+    ChannelPrivate,
+    PeerIdInvalid,
+    UserNotParticipant,
+)
 from pyrogram.types import Message
 
 from config import LOGGER_ID
