@@ -475,24 +475,64 @@ async def markup_timer():
                 LOGGER(__name__).warning("markup_timer: unhandled exception", exc_info=True)
                 continue
 
-@app.on_callback_query(filters.regex(r"^nowplaying_autoplay ") & ~BANNED_USERS)
+@app.on_callback_query(
+    filters.regex(r"^(?:autoplay|nowplaying_autoplay) ")
+    & ~BANNED_USERS
+)
 @ActualAdminCB
 async def nowplaying_autoplay_toggle(client, CallbackQuery, _):
-    chat_id = int(CallbackQuery.data.split(None, 1)[1])
+    try:
+        chat_id = int(CallbackQuery.data.split(None, 1)[1])
+    except (IndexError, ValueError):
+        return await CallbackQuery.answer(
+            "Invalid autoplay request.", show_alert=True
+        )
+
     if await is_autoplay(chat_id):
         await autoplay_off(chat_id)
-        toast = "Autoplay turned OFF"
+        toast = "🔴 Autoplay turned OFF"
     else:
         if not await is_active_chat(chat_id):
-            await CallbackQuery.answer(
-                "No song is currently playing. Play something first, then enable Autoplay.",
-                show_alert=True,
+            return await CallbackQuery.answer(
+                "No song is currently playing.", show_alert=True
             )
-            return
         await autoplay_on(chat_id)
-        toast = "Autoplay turned ON"
+        toast = "🟢 Autoplay turned ON"
+
     await CallbackQuery.answer(toast, show_alert=False)
-    await set_now_playing_state(chat_id, await is_music_playing(chat_id))
 
+    try:
+        playing = db.get(chat_id)
+        if not playing:
+            return
 
-asyncio.create_task(markup_timer())
+        current = playing[0]
+        mystic = current.get("mystic")
+        if not mystic:
+            return
+
+        language = await get_lang(chat_id)
+        _ = get_string(language)
+        mode = await is_autoplay(chat_id)
+
+        # Use the timer markup if the player already has its timer keyboard.
+        buttons = stream_markup_timer(
+            _,
+            current.get("vidid", ""),
+            chat_id,
+            seconds_to_min(current.get("played", 0) or 0),
+            current.get("dur", "00:00"),
+        )
+        buttons[-2] = autoplay_markup(chat_id, mode)
+
+        await mystic.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    except MessageNotModified:
+        pass
+    except Exception:
+        LOGGER(__name__).warning(
+            "Autoplay keyboard update failed",
+            exc_info=True,
+        )
