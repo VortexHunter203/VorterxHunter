@@ -9,7 +9,7 @@ from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
 
-API_URL = os.environ.get("API_URL", "").rstrip("/")
+API_URL = os.environ.get("API_URL", "")
 API_KEY = os.environ.get("API_KEY", "")
 
 DOWNLOAD_DIR = "downloads"
