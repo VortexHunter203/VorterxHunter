@@ -167,3 +167,4 @@ async def autoplay_toggle(client, CallbackQuery, _):
             text=_autoplay_command_text(new_mode),
             reply_markup=markup,
         )
+
