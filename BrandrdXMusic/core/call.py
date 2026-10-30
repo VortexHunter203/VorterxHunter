@@ -923,3 +923,4 @@ class Call(PyTgCalls):
 
 
 Hotty = Call()
+
