@@ -3,10 +3,9 @@ import asyncio
 import aiohttp
 
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
 from BrandrdXMusic import app
-
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ============================================================
 # CONFIG
@@ -516,6 +515,7 @@ async def get_link_group(client, message):
                         InlineKeyboardButton(
                             "🔗 Oᴘᴇɴ Fɪʟᴇ",
                             url=upload_url,
+                            style=ButtonStyle.SUCCESS
                         )
                     ]
                 ]
