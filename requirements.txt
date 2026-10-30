@@ -24,7 +24,7 @@ telegraph
 unidecode
 yt-dlp[default]
 py-yt-search
-lexica-api==1.5.1
+lexica-api==1.6.0
 gpytranslate
 python-telegram-bot
 pycryptodome
