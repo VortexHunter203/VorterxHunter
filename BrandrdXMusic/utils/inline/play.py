@@ -1,6 +1,5 @@
 import math
 from BrandrdXMusic import app
-
 from pyrogram.enums import ButtonStyle
 from pyrogram.types import InlineKeyboardButton
 from BrandrdXMusic.utils.database import is_autoplay
@@ -183,16 +182,11 @@ def stream_markup(_, videoid, chat_id):
 
 
 # ============================================================
-# Stream Markup 2
-#
-# Compatibility function for call.py.
-# Prevents:
-# ImportError: cannot import name 'stream_markup2'
+# Compatibility Function
 # ============================================================
 
 def stream_markup2(_, videoid, chat_id):
     return stream_markup(_, videoid, chat_id)
-
 
 # ============================================================
 # Playlist Markup
