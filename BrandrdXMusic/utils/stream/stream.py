@@ -1,10 +1,12 @@
 import os
-from random import randint
+import config
+import asyncio
 from typing import Union
+from random import randint
+from pyrogram.errors import FloodWait
 
 from pyrogram.types import InlineKeyboardMarkup
 from BrandrdXMusic.utils.database import get_assistant
-import config
 from BrandrdXMusic import (
     Apple,
     Resso,
@@ -81,8 +83,8 @@ async def stream(
         count = 0
 
         for search in result:
-            if int(count) == config.PLAYLIST_FETCH_LIMIT:
-                continue
+            if count == config.PLAYLIST_FETCH_LIMIT:
+                break
 
             try:
                 (
@@ -130,23 +132,41 @@ async def stream(
                 status = True if video else None
 
                 try:
-                    file_path, direct = await YouTube.download(
+                    download_result = await YouTube.download(
                         vidid,
                         mystic,
                         video=status,
                         videoid=True,
                     )
+
+                    if (
+                        not download_result
+                        or not isinstance(download_result, (tuple, list))
+                        or len(download_result) != 2
+                    ):
+                        LOGGER(__name__).error(
+                            "stream: invalid YouTube playlist download result "
+                            "for %s",
+                            vidid,
+                        )
+                        await mystic.edit_text(_["play_3"])
+                        return
+
+                    file_path, direct = download_result
+
+                    if not file_path:
+                        LOGGER(__name__).error(
+                            "stream: YouTube returned an empty playlist "
+                            "file path for %s",
+                            vidid,
+                        )
+                        await mystic.edit_text(_["play_3"])
+                        return
+
                 except Exception:
                     LOGGER(__name__).error(
                         "stream: YouTube playlist download failed",
                         exc_info=True,
-                    )
-                    await mystic.edit_text(_["play_3"])
-                    return
-
-                if not file_path:
-                    LOGGER(__name__).error(
-                        "stream: YouTube returned an empty playlist file path"
                     )
                     await mystic.edit_text(_["play_3"])
                     return
@@ -220,23 +240,41 @@ async def stream(
         status = True if video else None
 
         try:
-            file_path, direct = await YouTube.download(
+            download_result = await YouTube.download(
                 vidid,
                 mystic,
                 videoid=True,
                 video=status,
             )
+
+            if (
+                not download_result
+                or not isinstance(download_result, (tuple, list))
+                or len(download_result) != 2
+            ):
+                LOGGER(__name__).error(
+                    "stream: invalid YouTube download result for %s",
+                    vidid,
+                )
+                await mystic.edit_text(_["play_3"])
+                return
+
+            file_path, direct = download_result
+
+            if not file_path:
+                LOGGER(__name__).error(
+                    "stream: YouTube returned an empty file path for %s. "
+                    "Check YouTube extraction settings.",
+                    vidid,
+                )
+                await mystic.edit_text(_["play_3"])
+                return
+
         except Exception:
             LOGGER(__name__).error(
-                "stream: YouTube download failed",
+                "stream: YouTube download failed for %s",
+                vidid,
                 exc_info=True,
-            )
-            await mystic.edit_text(_["play_3"])
-            return
-
-        if not file_path:
-            LOGGER(__name__).error(
-                "stream: YouTube returned an empty file path"
             )
             await mystic.edit_text(_["play_3"])
             return
@@ -258,17 +296,52 @@ async def stream(
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
 
-            await app.send_photo(
-                chat_id=original_chat_id,
-                photo=img,
-                caption=_["queue_4"].format(
-                    position,
-                    title[:18],
-                    duration_min,
-                    user_name,
-                ),
-                reply_markup=InlineKeyboardMarkup(button),
-            )
+            try:
+                await app.send_photo(
+                    chat_id=original_chat_id,
+                    photo=img,
+                    caption=_["queue_4"].format(
+                        position,
+                        title[:18],
+                        duration_min,
+                        user_name,
+                    ),
+                    reply_markup=InlineKeyboardMarkup(button),
+                )
+            except FloodWait as e:
+                LOGGER(__name__).warning(
+                    "send_photo FloodWait: waiting %s seconds",
+                    e.value,
+                )
+                await asyncio.sleep(e.value + 1)
+
+                try:
+                    await app.send_photo(
+                        chat_id=original_chat_id,
+                        photo=img,
+                        caption=_["queue_4"].format(
+                            position,
+                            title[:18],
+                            duration_min,
+                            user_name,
+                        ),
+                        reply_markup=InlineKeyboardMarkup(button),
+                    )
+                except FloodWait as retry_error:
+                    LOGGER(__name__).warning(
+                        "send_photo retry FloodWait: %s seconds",
+                        retry_error.value,
+                    )
+                except Exception:
+                    LOGGER(__name__).error(
+                        "stream: queue photo retry failed",
+                        exc_info=True,
+                    )
+            except Exception:
+                LOGGER(__name__).error(
+                    "stream: failed to send queue photo",
+                    exc_info=True,
+                )
 
         else:
             if not forceplay:
@@ -528,7 +601,11 @@ async def stream(
                 return
 
             if n == 0 or not file_path:
-                raise AssistantErr(_["str_3"])
+                LOGGER(__name__).error(
+                    "stream: live stream returned an empty file path"
+                )
+                await mystic.edit_text(_["play_3"])
+                return
 
             await Hotty.join_call(
                 chat_id,
