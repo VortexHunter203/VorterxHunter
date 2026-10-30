@@ -85,7 +85,7 @@ async def init():
 
     except Exception as e:
         LOGGER("BrandrdXMusic").warning(
-            "Initial VC connection failed: %s", e"
+            "Initial VC connection failed: %s", e
         )
 
     await Hotty.decorators()
@@ -94,8 +94,8 @@ async def init():
     timer_task = asyncio.create_task(markup_timer())
 
     LOGGER("BrandrdXMusic").info(
-    "ᴅʀᴏᴘ ʏᴏᴜʀ ɢɪʀʟꜰʀɪᴇɴᴅ'ꜱ ɴᴜᴍʙᴇʀ ᴀᴛ @BRANDED_PAID_CC ᴊᴏɪɴ @BRANDRD_BOT , @BRANDEDKING8 ꜰᴏʀ ᴀɴʏ ɪꜱꜱᴜᴇꜱ"
-            )
+        "ᴅʀᴏᴘ ʏᴏᴜʀ ɢɪʀʟꜰʀɪᴇɴᴅ'ꜱ ɴᴜᴍʙᴇʀ ᴀᴛ @BRANDED_PAID_CC ᴊᴏɪɴ @BRANDRD_BOT , @BRANDEDKING8 ꜰᴏʀ ᴀɴʏ ɪꜱꜱᴜᴇꜱ"
+    )
 
     try:
         await idle()
@@ -104,9 +104,9 @@ async def init():
 
         try:
             await timer_task
-        except asyncio.CancelledError
+        except asyncio.CancelledError:
             pass
-            
+
         await Hotty.stop()
         await userbot.stop()
         await app.stop()
