@@ -62,6 +62,11 @@
       "value": "https://api.shrutibots.in",
       "required": true
     }
+    "API_KEY": {
+      "description": "Get API key from Telegram @BRANDEDKING2",
+      "value": "",
+      "required": true
+    }
   },
   "buildpacks": [
     {
