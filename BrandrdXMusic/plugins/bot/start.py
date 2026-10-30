@@ -266,3 +266,4 @@ async def welcome(client, message: Message):
 async def debug_ping(client, message: Message):
     print("DEBUG: PING HANDLER RECEIVED")
     await message.reply_text("✅ Bot message receive kar raha hai!")
+
