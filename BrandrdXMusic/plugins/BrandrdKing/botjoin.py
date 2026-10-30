@@ -14,6 +14,7 @@ from BrandrdXMusic import app
 from BrandrdXMusic.core.userbot import Userbot
 from BrandrdXMusic.utils.database import delete_served_chat
 from BrandrdXMusic.utils.database import get_assistant
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 
 
 photo = [
@@ -67,6 +68,7 @@ async def join_watcher(_, message):
                                 InlineKeyboardButton(
                                     "😍 𝐀ᴅᴅᴇᴅ 𝐁ʏ 😍",
                                     url=f"tg://openmessage?user_id={message.from_user.id}",
+                                    style=ButtonStyle.SUCCESS
                                 )
                             ]
                         ]
