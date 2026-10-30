@@ -1,10 +1,11 @@
+import time
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from BrandrdXMusic import app
 from pyrogram import *
-import time
 from pyrogram.types import *
 from config import OWNER_ID
+from pyrogram.enums import ButtonStyle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.raw.functions.phone import CreateGroupCall, DiscardGroupCall
 from pyrogram.raw.types import InputGroupCall
@@ -111,7 +112,8 @@ async def brah3(client, message: Message):
                     [
                         InlineKeyboardButton(
                             " ᴊᴏɪɴ ᴠᴄ 🛜",
-                            url=add_link
+                            url=add_link,
+                            style=ButtonStyle.SUCCESS
                         )
                     ]
                 ]
