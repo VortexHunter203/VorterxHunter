@@ -27,6 +27,7 @@ from BrandrdXMusic.utils.decorators.admins import ActualAdminCB
 from BrandrdXMusic.utils.decorators.language import languageCB
 from BrandrdXMusic.utils.formatters import seconds_to_min
 from BrandrdXMusic.utils.inline import (
+    autoplay_markup,
     close_markup,
     stream_markup,
     stream_markup2,
@@ -34,7 +35,6 @@ from BrandrdXMusic.utils.inline import (
 
 )
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
-from BrandrdXMusic.utils.rich_stream import set_now_playing_state
 from BrandrdXMusic.utils.thumbnails import get_thumb
 from config import (
     BANNED_USERS,
