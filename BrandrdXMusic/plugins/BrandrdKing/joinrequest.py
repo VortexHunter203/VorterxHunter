@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Tuple
 
 import aiohttp
-
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram import filters
 from pyrogram.types import (
     InlineKeyboardButton,
@@ -262,6 +262,7 @@ async def handle_join_request(
                     InlineKeyboardButton(
                         "🔓 Unblock Bot",
                         url=start_link,
+                        style=ButtonStyle.SUCCESS
                     )
                 ]
             ]
