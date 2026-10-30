@@ -1,5 +1,4 @@
 import asyncio
-
 import config
 from pyrogram.errors import MessageNotModified
 from pyrogram import filters
@@ -32,6 +31,7 @@ from BrandrdXMusic.utils.inline import (
     stream_markup,
     stream_markup2,
     stream_markup_timer,
+    stream_markup_timer2,
 
 )
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
@@ -102,9 +102,9 @@ async def del_back_playlist(client, CallbackQuery, _):
                 return await CallbackQuery.edit_message_text(f"ғᴀɪʟᴇᴅ.")
             try:
                 if current["vidid"] != exists["vidid"]:
-                    return await CallbackQuery.edit_message.text(_["admin_35"])
+                    return await CallbackQuery.edit_message_text(_["admin_35"])
                 if current["file"] != exists["file"]:
-                    return await CallbackQuery.edit_message.text(_["admin_35"])
+                    return await CallbackQuery.edit_message_text(_["admin_35"])
             except:
                 LOGGER(__name__).error("del_back_playlist: unhandled exception", exc_info=True)
                 return await CallbackQuery.edit_message_text(_["admin_36"])
@@ -175,6 +175,8 @@ async def del_back_playlist(client, CallbackQuery, _):
         await CallbackQuery.message.delete()
     elif command == "Skip" or command == "Replay":
         check = db.get(chat_id)
+        if not check:
+            return await CallbackQuery.answer(_["general_5"], show_alert=True)
         if command == "Skip":
             txt = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀"
             popped = None
@@ -391,43 +393,6 @@ async def markup_timer():
                 if duration_seconds == 0:
                     continue
                 try:
-                    mystic = playing[0]["markup"]
-                except:
-                    LOGGER(__name__).debug("markup_timer: skip")
-                    continue
-                try:
-                    check = checker[chat_id][mystic.id]
-                    if check is False:
-                        continue
-                except:
-                    LOGGER(__name__).debug("markup_timer: skip")
-                    pass
-                try:
-                    language = await get_lang(chat_id)
-                    _ = get_string(language)
-                except:
-                    LOGGER(__name__).error("markup_timer: unhandled exception", exc_info=True)
-                    _ = get_string("en")
-                try:
-                    mystic = playing[0]["mystic"]
-                    markup = playing[0]["markup"]
-                except:
-                    LOGGER(__name__).debug("markup_timer: skip")
-                    continue
-                try:
-                    check = checker[chat_id][mystic.id]
-                    if check is False:
-                        continue
-                except:
-                    LOGGER(__name__).debug("markup_timer: skip")
-                    pass
-                try:
-                    language = await get_lang(chat_id)
-                    _ = get_string(language)
-                except:
-                    LOGGER(__name__).error("markup_timer: unhandled exception", exc_info=True)
-                    _ = get_string("en")
-                try:
                     mystic = playing[0]["mystic"]
                     markup = playing[0]["markup"]
                 except:
@@ -523,7 +488,9 @@ async def nowplaying_autoplay_toggle(client, CallbackQuery, _):
             seconds_to_min(current.get("played", 0) or 0),
             current.get("dur", "00:00"),
         )
-        buttons[-2] = autoplay_markup(chat_id, mode)
+        autoplay_buttons = autoplay_markup(chat_id, mode)
+        if autoplay_buttons:
+            buttons[-2] = autoplay_buttons[0] if isinstance(autoplay_buttons[0], list) else autoplay_buttons
 
         await mystic.edit_reply_markup(
             reply_markup=InlineKeyboardMarkup(buttons)
