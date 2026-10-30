@@ -1,7 +1,7 @@
 from BrandrdXMusic import app
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode, ButtonStyle
 from html import escape
 
 
@@ -9,7 +9,8 @@ from html import escape
 async def ids(_, message):
     button = InlineKeyboardButton(
         " ᴄʟᴏsᴇ ",
-        callback_data="close"
+        callback_data="close",
+        style=ButtonStyle.DANGER
     )
     markup = InlineKeyboardMarkup([[button]])
 
