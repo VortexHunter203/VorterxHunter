@@ -253,8 +253,10 @@ async def bot_wel(_, message):
             f"➖➖➖➖➖➖➖➖"
             f"</blockquote></b>"
         )
-        if LOG_CHANNEL_ID is None:
-            LOGGER.error("LOG_CHANNEL_ID is missing from config.py")
+        if not LOG_CHANNEL_ID:
+            LOGGER.error(
+                "LOGGER_ID is missing or invalid in config.py"
+            )
             continue
         try:
             await app.send_message(
