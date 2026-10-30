@@ -12,6 +12,7 @@ from BrandrdXMusic import Apple, Resso, SoundCloud, Spotify, Telegram, YouTube, 
 from BrandrdXMusic.core.call import Hotty
 from BrandrdXMusic.logging import LOGGER
 from BrandrdXMusic.utils import seconds_to_min, time_to_seconds
+from BrandrdXMusic.plugins.Brandedking.admin_request import check_admin_and_request
 from BrandrdXMusic.utils.channelplay import get_channeplayCB
 from BrandrdXMusic.utils.decorators.language import languageCB
 from BrandrdXMusic.utils.decorators.play import PlayWrapper
@@ -56,6 +57,11 @@ async def play_commnd(
     url,
     fplay,
 ):
+    result = await check_admin_and_request(message)
+
+    if not result:
+        return
+        
     await _play_flow(
         client, message, _, chat_id, video, channel, playmode, url, fplay
     )
