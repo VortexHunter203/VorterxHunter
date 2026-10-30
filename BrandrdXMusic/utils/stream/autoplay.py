@@ -5,13 +5,19 @@ import re
 from BrandrdXMusic import YouTube, app
 from BrandrdXMusic.misc import db
 from BrandrdXMusic.platforms.Youtube import get_autoplay, is_external_path
+from pyrogram.types import InlineKeyboardMarkup
 from BrandrdXMusic.utils.database import get_lang, is_autoplay
 from BrandrdXMusic.utils.formatters import seconds_to_min
-from BrandrdXMusic.utils.stream.history import record_played, was_recently_played
+from BrandrdXMusic.utils.inline import stream_markup
+from BrandrdXMusic.utils.stream.history import (
+    record_played,
+    was_recently_played,
+)
 from BrandrdXMusic.utils.stream.queue import put_queue
 from BrandrdXMusic.utils.stream.seed import get_seed
 from BrandrdXMusic.utils.thumbnails import get_thumb
 from strings import get_string
+
 
 PREFETCH_AFTER = 5
 DOWNLOAD_TIMEOUT = 90
@@ -48,6 +54,7 @@ def _in_any_queue(path):
 def _release_file(path):
     if not path or is_external_path(path) or _in_any_queue(path):
         return
+
     try:
         if os.path.exists(path):
             os.remove(path)
@@ -58,12 +65,14 @@ def _release_file(path):
 def _discard_entry(entry):
     picked = entry.get("ready")
     entry["ready"] = None
+
     if picked:
         _release_file(picked[3])
 
 
 def discard_prefetch(chat_id):
     entry = _cache.pop(chat_id, None)
+
     if entry:
         _discard_entry(entry)
 
@@ -71,12 +80,20 @@ def discard_prefetch(chat_id):
 def _clean(chat_id, entry, tracks):
     out = []
     seen = {entry["source_id"]} | entry["failed"]
+
     for track in tracks or []:
         video_id = track.get("video_id")
-        if not video_id or video_id in seen or was_recently_played(chat_id, video_id):
+
+        if (
+            not video_id
+            or video_id in seen
+            or was_recently_played(chat_id, video_id)
+        ):
             continue
+
         seen.add(video_id)
         out.append(track)
+
     return out
 
 
@@ -84,8 +101,12 @@ async def _download(next_id, video, timeout):
     task = asyncio.ensure_future(
         YouTube.download(next_id, None, video=video, videoid=True)
     )
+
     try:
-        return await asyncio.wait_for(asyncio.shield(task), timeout)
+        return await asyncio.wait_for(
+            asyncio.shield(task),
+            timeout,
+        )
     except Exception:
         return None, False
 
@@ -94,19 +115,42 @@ async def _pick(chat_id, entry, video, timeout):
     while _cache.get(chat_id) is entry and entry["tracks"]:
         track = entry["tracks"].pop(0)
         next_id = track.get("video_id")
+
         if not next_id or was_recently_played(chat_id, next_id):
             continue
+
         entry["inflight"] = next_id
-        thumb = asyncio.ensure_future(get_thumb(next_id))
-        file_path, direct = await _download(next_id, video, timeout)
+        thumb_task = asyncio.ensure_future(get_thumb(next_id))
+
+        file_path, direct = await _download(
+            next_id,
+            video,
+            timeout,
+        )
+
         entry["inflight"] = None
+
         if not file_path or not os.path.exists(file_path):
             entry["failed"].add(next_id)
             continue
+
         title = (track.get("title") or "Autoplay Track").title()
         duration_min = seconds_to_min(track.get("duration") or 0)
-        img = await thumb
-        return next_id, title, duration_min, file_path, direct, img
+
+        try:
+            img = await thumb_task
+        except Exception:
+            img = None
+
+        return (
+            next_id,
+            title,
+            duration_min,
+            file_path,
+            direct,
+            img,
+        )
+
     return None
 
 
@@ -120,23 +164,35 @@ async def _fetch_tracks(chat_id, entry):
         )
     except Exception:
         fresh = []
+
     tracks = _clean(chat_id, entry, fresh)
+
     if not tracks:
         tracks = _clean(chat_id, entry, entry["carry"])
+
     entry["tracks"] = tracks
 
 
 async def _prefetch(chat_id, entry):
     try:
         await _fetch_tracks(chat_id, entry)
+
         if _cache.get(chat_id) is not entry:
             return
-        picked = await _pick(chat_id, entry, entry["video"], DOWNLOAD_TIMEOUT)
+
+        picked = await _pick(
+            chat_id,
+            entry,
+            entry["video"],
+            DOWNLOAD_TIMEOUT,
+        )
     except Exception:
         picked = None
+
     if picked and _cache.get(chat_id) is not entry:
         _release_file(picked[3])
         picked = None
+
     entry["ready"] = picked
 
 
@@ -147,76 +203,128 @@ def _is_youtube_id(value):
 async def schedule_prefetch(chat_id, playing):
     if not playing or len(playing) != 1:
         return
+
     item = playing[0]
+
     if item.get("played", 0) < PREFETCH_AFTER:
         return
+
     source_id = item.get("vidid")
+
     if not _is_youtube_id(source_id):
         return
+
     queued = str(item.get("file"))
+
     if queued.startswith("live_") or queued == "index_url":
         return
-    entry = _cache.get(chat_id)
-    if entry and entry["source_id"] == source_id:
-        return
+
     if not await is_autoplay(chat_id):
         return
+
+    entry = _cache.get(chat_id)
+
+    if entry and entry["source_id"] == source_id:
+        return
+
     carry = list(entry["tracks"]) if entry else []
+
     if entry:
         _discard_entry(entry)
-    video = str(item.get("streamtype")) == "video"
-    fresh = _new_entry(source_id, carry, video)
+
+    fresh = _new_entry(
+        source_id,
+        carry,
+        str(item.get("streamtype")) == "video",
+    )
+
     _cache[chat_id] = fresh
-    fresh["task"] = asyncio.ensure_future(_prefetch(chat_id, fresh))
+    fresh["task"] = asyncio.ensure_future(
+        _prefetch(chat_id, fresh)
+    )
 
 
 async def try_autoplay(chat_id, popped) -> bool:
-    if not popped:
-        return False
-
-    if not await is_autoplay(chat_id):
+    if not popped or not await is_autoplay(chat_id):
         return False
 
     source_id = popped.get("vidid")
+
     if not source_id or source_id in ("telegram", "soundcloud"):
         return False
 
     original_chat_id = popped.get("chat_id")
-    video = str(popped.get("streamtype")) == "video"
 
+    if not original_chat_id:
+        return False
+
+    video = str(popped.get("streamtype")) == "video"
     entry = _cache.get(chat_id)
+
     picked = None
     leftover = []
     failed = set()
 
     if entry and entry["source_id"] == source_id:
         task = entry.get("task")
+
         if task is not None and not task.done():
             try:
-                await asyncio.wait_for(asyncio.shield(task), READY_WAIT)
+                await asyncio.wait_for(
+                    asyncio.shield(task),
+                    READY_WAIT,
+                )
             except Exception:
                 pass
+
         picked = entry.get("ready")
         entry["ready"] = None
-        if picked and not os.path.exists(picked[3]):
+
+        if picked and (
+            not picked[3] or not os.path.exists(picked[3])
+        ):
             picked = None
+
         leftover = list(entry["tracks"])
         failed = set(entry["failed"])
+
         if entry.get("inflight"):
             failed.add(entry["inflight"])
+
     elif entry:
         _discard_entry(entry)
         leftover = list(entry["tracks"])
 
     if not picked:
-        same_source = bool(entry) and entry["source_id"] == source_id
-        entry = _new_entry(source_id, leftover, video, failed)
+        same_source = (
+            bool(entry) and entry["source_id"] == source_id
+        )
+
+        entry = _new_entry(
+            source_id,
+            leftover,
+            video,
+            failed,
+        )
+
         _cache[chat_id] = entry
+
         if same_source:
-            entry["tracks"] = _clean(chat_id, entry, leftover)
+            entry["tracks"] = _clean(
+                chat_id,
+                entry,
+                leftover,
+            )
+
         if not entry["tracks"]:
             await _fetch_tracks(chat_id, entry)
-        picked = await _pick(chat_id, entry, video, FALLBACK_TIMEOUT)
+
+        picked = await _pick(
+            chat_id,
+            entry,
+            video,
+            FALLBACK_TIMEOUT,
+        )
 
     if not picked:
         return False
@@ -225,40 +333,87 @@ async def try_autoplay(chat_id, popped) -> bool:
 
     from BrandrdXMusic.core.call import Hotty
 
+    # Start the next track.
     try:
-        await BrandrdXMusic.skip_stream(chat_id, file_path, video=video)
+        await Hotty.skip_stream(
+            chat_id,
+            file_path,
+            video=video,
+        )
     except Exception:
+        _release_file(file_path)
         return False
 
-    record_played(chat_id, next_id)
+    # Add the next track to the queue.
+    try:
+        await put_queue(
+            chat_id,
+            original_chat_id,
+            file_path if direct else f"vid_{next_id}",
+            title,
+            duration_min,
+            "Autoplay",
+            next_id,
+            app.me.id,
+            "video" if video else "audio",
+        )
+    except Exception:
+        try:
+            await Hotty.stop_stream(chat_id)
+        except Exception:
+            pass
 
-    await put_queue(
-        chat_id,
-        original_chat_id,
-        file_path if direct else f"vid_{next_id}",
-        title,
-        duration_min,
-        "Autoplay",
-        next_id,
-        nand.id,
-        "video" if video else "audio",
-    )
+        _release_file(file_path)
+        raise
+
+    record_played(chat_id, next_id)
 
     language = await get_lang(original_chat_id)
     _ = get_string(language)
 
-    run = await send_now_playing_rich(
-        nand,
-        chat_id,
-        original_chat_id,
-        img,
-        _["stream_1"].format(
-            f"https://t.me/{nand.username}?start=info_{next_id}",
-            title[:23],
-            duration_min,
-            "Autoplay",
-        ),
+    caption = _["stream_1"].format(
+        f"https://t.me/{app.me.username}?start=info_{next_id}",
+        title[:23],
+        duration_min,
+        "Autoplay",
     )
-    db[chat_id][0]["mystic"] = run
-    db[chat_id][0]["markup"] = "stream"
+
+    # Attach the same player controls used by normal playback.
+    buttons = stream_markup(_, next_id, chat_id)
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    photo = img
+
+    if not photo:
+        try:
+            photo = await get_thumb(next_id)
+        except Exception:
+            photo = None
+
+    if photo:
+        try:
+            run = await app.send_photo(
+                chat_id=original_chat_id,
+                photo=photo,
+                caption=caption,
+                reply_markup=reply_markup,
+            )
+        except Exception:
+            run = await app.send_message(
+                chat_id=original_chat_id,
+                text=caption,
+                reply_markup=reply_markup,
+            )
+    else:
+        run = await app.send_message(
+            chat_id=original_chat_id,
+            text=caption,
+            reply_markup=reply_markup,
+        )
+
+    # Save the message so the timer can update its keyboard.
+    if db.get(chat_id):
+        db[chat_id][0]["mystic"] = run
+        db[chat_id][0]["markup"] = "stream"
+
     return True
