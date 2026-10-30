@@ -593,3 +593,4 @@ async def nowplaying_autoplay_toggle(client, CallbackQuery, _):
             "Autoplay keyboard update failed",
             exc_info=True,
         )
+
