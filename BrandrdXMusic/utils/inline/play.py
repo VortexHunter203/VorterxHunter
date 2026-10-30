@@ -37,20 +37,6 @@ def track_markup(_, videoid, user_id, channel, fplay):
         ],
     ]
 
-
-# Autoplay Markup
-def autoplay_markup(chat_id, mode: bool):
-    text = "🔁 Autoplay: ON" if mode else "🔁 Autoplay: OFF"
-
-    return [
-        InlineKeyboardButton(
-            text=text,
-            callback_data=f"autoplay {chat_id}",
-            style=COLORS[1] if mode else COLORS[2],
-        )
-    ]
-
-
 # ============================================================
 # Stream Timer Markup
 # ============================================================
@@ -131,6 +117,29 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
 
 
 # ============================================================
+# Autoplay Markup
+# ============================================================
+
+def autoplay_markup(chat_id, mode=None):
+    if mode is True:
+        text = "🟢 Autoplay: ON"
+        style = COLORS[1]
+    elif mode is False:
+        text = "🔴 Autoplay: OFF"
+        style = COLORS[2]
+    else:
+        text = "🔁 Autoplay: ON/OFF"
+        style = COLORS[0]
+
+    return [
+        InlineKeyboardButton(
+            text=text,
+            callback_data=f"autoplay {chat_id}",
+            style=style,
+        )
+    ]
+    
+# ============================================================
 # Stream Markup
 # ============================================================
 
@@ -162,13 +171,6 @@ def stream_markup(_, videoid, chat_id):
                 callback_data=f"ADMIN Stop|{chat_id}",
                 style=COLORS[2],
             ),
-        ],
-        [
-            InlineKeyboardButton(
-                text="ᴏᴡɴᴇʀ",
-                url="https://t.me/BRANDEDKING8",
-                style=COLORS[0],
-            )
         ],
         [
             InlineKeyboardButton(
