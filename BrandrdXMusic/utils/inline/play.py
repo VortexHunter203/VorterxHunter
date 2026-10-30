@@ -49,25 +49,25 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
     umm = math.floor(percentage)
 
     if 0 < umm <= 10:
-        bar = "❥—————————"
+        bar = "▷—————————"
     elif umm < 20:
-        bar = "—❥————————"
+        bar = "—▷————————"
     elif umm < 30:
-        bar = "——❥———————"
+        bar = "——▷———————"
     elif umm < 40:
-        bar = "———❥——————"
+        bar = "———▷——————"
     elif umm < 50:
-        bar = "————❥—————"
+        bar = "————▷—————"
     elif umm < 60:
-        bar = "—————❥————"
+        bar = "—————▷————"
     elif umm < 70:
-        bar = "——————❥———"
+        bar = "——————▷———"
     elif umm < 80:
-        bar = "———————❥——"
+        bar = "———————▷——"
     elif umm < 95:
-        bar = "————————❥—"
+        bar = "————————▷—"
     else:
-        bar = "—————————❥"
+        bar = "—————————▷"
 
     return [
         [
@@ -91,7 +91,7 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
             InlineKeyboardButton(
                 text="🔄",
                 callback_data=f"ADMIN Replay|{chat_id}",
-                style=COLORS[0],
+                style=COLORS[2],
             ),
             InlineKeyboardButton(
                 text="⏭️",
@@ -114,7 +114,6 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
         ],
     ]
 
-
 # ============================================================
 # Autoplay Markup
 # ============================================================
@@ -122,10 +121,10 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
 def autoplay_markup(chat_id, mode=None):
     if mode is True:
         text = "🟢 Autoplay: ON"
-        style = COLORS[1]
+        style = COLORS[2]
     elif mode is False:
         text = "🔴 Autoplay: OFF"
-        style = COLORS[2]
+        style = COLORS[1]
     else:
         text = "🔁 Autoplay: ON/OFF"
         style = COLORS[0]
@@ -135,7 +134,12 @@ def autoplay_markup(chat_id, mode=None):
             text=text,
             callback_data=f"autoplay {chat_id}",
             style=style,
-        )
+        ),
+        InlineKeyboardButton(
+            text="💬 Support",
+            url="https://t.me/BrandedSupport",
+            style=COLORS[0],
+        ),
     ]
 
 # ============================================================
@@ -158,7 +162,7 @@ def stream_markup(_, videoid, chat_id):
             InlineKeyboardButton(
                 text="🔄",
                 callback_data=f"ADMIN Replay|{chat_id}",
-                style=COLORS[0],
+                style=COLORS[2],
             ),
             InlineKeyboardButton(
                 text="⏭️",
