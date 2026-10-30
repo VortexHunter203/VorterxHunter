@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import time
-
 from pyrogram import enums, filters
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pytgcalls import filters as call_filters
@@ -155,7 +154,15 @@ async def _vc_join_keyboard(chat_id):
             return None
 
         return InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🎧 Join To VC", url=vc_url)]]
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎧 Join To VC",
+                        url=vc_url,
+                        style=ButtonStyle.SUCCESS
+                    )
+                ]
+            ]
         )
 
     except Exception:
