@@ -1,4 +1,6 @@
 import random
+from html import escape
+
 from pyrogram import Client
 from pyrogram.types import Message
 from pyrogram import filters
@@ -25,14 +27,17 @@ photo = [
     "https://imgdb.io/i/X-6L38g.jpg",
 ]
 
+
 @app.on_message(filters.new_chat_members, group=2)
 async def join_watcher(_, message):
     try:
-        userbot = await get_assistant(message.chat.id)
         chat = message.chat
 
         for members in message.new_chat_members:
             if members.id == app.id:
+
+                userbot = await get_assistant(chat.id)
+
                 count = await app.get_chat_members_count(chat.id)
 
                 username = (
@@ -50,7 +55,7 @@ async def join_watcher(_, message):
                 msg = (
                     f"<b><blockquote>"
                     f"📝 𝐌ᴜsɪᴄ 𝐁ᴏᴛ 𝐀ᴅᴅᴇᴅ 𝐈ɴ 𝐀 #𝐍ᴇᴡ_𝐆ʀᴏᴜᴘ\n\n"
-                    f"📌 𝐂ʜᴀᴛ 𝐍ᴀᴍᴇ: {message.chat.title}\n"
+                    f"📌 𝐂ʜᴀᴛ 𝐍ᴀᴍᴇ: {escape(message.chat.title or 'Group')}\n"
                     f"🍂 𝐂ʜᴀᴛ 𝐈ᴅ: {message.chat.id}\n"
                     f"🔐 𝐂ʜᴀᴛ 𝐔sᴇʀɴᴀᴍᴇ: @{username}\n"
                     f"📈 𝐆ʀᴏᴜᴘ 𝐌ᴇᴍʙᴇʀs: {count}\n"
@@ -58,21 +63,24 @@ async def join_watcher(_, message):
                     f"</blockquote></b>"
                 )
 
+                buttons = []
+
+                if message.from_user:
+                    buttons.append(
+                        [
+                            InlineKeyboardButton(
+                                "😍 𝐀ᴅᴅᴇᴅ 𝐁ʏ 😍",
+                                url=f"tg://user?id={message.from_user.id}",
+                                style=ButtonStyle.SUCCESS
+                            )
+                        ]
+                    )
+
                 await app.send_photo(
-                    LOG_GROUP_ID,
+                    LOGGER_ID,
                     photo=random.choice(photo),
                     caption=msg,
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "😍 𝐀ᴅᴅᴇᴅ 𝐁ʏ 😍",
-                                    url=f"tg://openmessage?user_id={message.from_user.id}",
-                                    style=ButtonStyle.SUCCESS
-                                )
-                            ]
-                        ]
-                    ),
+                    reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
                 )
 
                 await userbot.join_chat(
