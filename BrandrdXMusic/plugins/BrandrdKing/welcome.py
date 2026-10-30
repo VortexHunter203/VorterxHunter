@@ -8,12 +8,7 @@ from logging import getLogger
 from html import escape
 from BrandrdXMusic import app
 
-# Agar LOG_CHANNEL_ID config mein defined hai,
-# to apne project ke existing config se import karo.
-try:
-    from config import LOG_CHANNEL_ID
-except ImportError:
-    LOG_CHANNEL_ID = None
+from config import LOG_CHANNEL_ID
 
 LOGGER = getLogger(__name__)
 
