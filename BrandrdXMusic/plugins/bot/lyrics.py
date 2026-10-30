@@ -1,7 +1,6 @@
 import random
 import re
 import string
-
 import lyricsgenius as lg
 from requests.exceptions import HTTPError, RequestException
 from pyrogram import filters
