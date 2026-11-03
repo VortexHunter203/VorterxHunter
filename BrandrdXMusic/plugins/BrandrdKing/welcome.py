@@ -49,8 +49,8 @@ class temp:
 
 
 async def auto_delete_welcome(message):
-    """Automatically delete welcome message after 10 seconds."""
-    await asyncio.sleep(10)
+    """Automatically delete welcome message after 4 minutes."""
+    await asyncio.sleep(240)
     try:
         await message.delete()
     except Exception as e:
@@ -219,7 +219,7 @@ async def greet_group(_, member: ChatMemberUpdated):
             )
         )
         temp.MELCOW[f"welcome-{chat_id}"] = sent
-        # AUTO DELETE AFTER 10 SECONDS
+        # AUTO DELETE AFTER 4 MINUTES
         asyncio.create_task(auto_delete_welcome(sent))
     except Exception:
         LOGGER.exception("Welcome image error for user %s", user.id)
