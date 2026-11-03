@@ -1,10 +1,13 @@
 import asyncio
 import logging
 import time
+import html
+
 from pyrogram import enums, filters
 from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 from pytgcalls import filters as call_filters
 from pytgcalls.types import (
     GroupCallParticipant,
@@ -18,6 +21,7 @@ from BrandrdXMusic.utils.database import (
     vclogger_off,
 )
 
+
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.WARNING)
 
@@ -29,6 +33,7 @@ VC_FLOOD_UNTIL = 0
 
 VC_DUPLICATE_DELAY = 15
 VC_SEND_DELAY = 2
+VC_DELETE_DELAY = 5
 
 
 # VC LOGGER ENABLE / DISABLE COMMAND
@@ -109,17 +114,22 @@ async def vclogger_command(client, message):
 async def vclogger_mention(user_id: int):
     try:
         user = await app.get_users(user_id)
-        return user.mention
+        name = user.first_name or "User"
 
     except Exception:
-        return f"<a href='tg://user?id={user_id}'>ᴜsᴇʀ</a>"
+        name = "User"
+
+    return (
+        f"<a href='tg://user?id={user_id}'>"
+        f"{html.escape(name)}</a>"
+    )
 
 
 # AUTO DELETE AFTER 5 SECONDS
 
 async def _vc_delete_later(message):
     try:
-        await asyncio.sleep(5)
+        await asyncio.sleep(VC_DELETE_DELAY)
         await message.delete()
 
     except asyncio.CancelledError:
@@ -148,7 +158,9 @@ async def _vc_join_keyboard(chat_id):
             vc_url = f"https://t.me/{username}?voicechat"
 
         elif str(chat_id).startswith("-100"):
-            vc_url = f"https://t.me/c/{str(chat_id)[4:]}?voicechat"
+            vc_url = (
+                f"https://t.me/c/{str(chat_id)[4:]}?voicechat"
+            )
 
         else:
             return None
@@ -159,7 +171,7 @@ async def _vc_join_keyboard(chat_id):
                     InlineKeyboardButton(
                         "🎧 Join To VC",
                         url=vc_url,
-                        style=ButtonStyle.SUCCESS
+                        style=ButtonStyle.SUCCESS,
                     )
                 ]
             ]
@@ -210,28 +222,34 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
             if now - timestamp >= VC_DUPLICATE_DELAY:
                 VC_EVENT_CACHE.pop(key, None)
 
-        # Prevent the same event from being sent by multiple assistants.
-        if now - VC_EVENT_CACHE.get(event_key, 0) < VC_DUPLICATE_DELAY:
-            return
-
-        VC_EVENT_CACHE[event_key] = now
-
         lock = VC_CHAT_LOCKS.setdefault(
             chat_id,
             asyncio.Lock(),
         )
 
         async with lock:
+
             now = time.monotonic()
 
-            # Respect Telegram's FloodWait.
+            # Prevent duplicate events from all assistants.
+            if now - VC_EVENT_CACHE.get(event_key, 0) < VC_DUPLICATE_DELAY:
+                return
+
+            # Respect Telegram FloodWait.
             if now < VC_FLOOD_UNTIL:
+                return
+
+            # Check logger status again.
+            if not await is_vclogger_on(chat_id):
                 return
 
             role = "MEMBER"
 
             try:
-                member = await app.get_chat_member(chat_id, user_id)
+                member = await app.get_chat_member(
+                    chat_id,
+                    user_id,
+                )
 
                 if member.status == ChatMemberStatus.OWNER:
                     role = "OWNER"
@@ -242,6 +260,7 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
             except Exception:
                 pass
 
+            # Always generate a clickable Telegram mention.
             mention = await vclogger_mention(user_id)
 
             text = (
@@ -266,13 +285,18 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
             except FloodWait as error:
                 seconds = max(1, int(error.value))
 
-                VC_FLOOD_UNTIL = time.monotonic() + seconds + 2
+                VC_FLOOD_UNTIL = (
+                    time.monotonic() + seconds + 2
+                )
 
                 LOG.warning(
                     "[VC Logger] Telegram FloodWait: %s seconds",
                     seconds,
                 )
                 return
+
+            # Save event only after successful message delivery.
+            VC_EVENT_CACHE[event_key] = time.monotonic()
 
             asyncio.create_task(
                 _vc_delete_later(sent_message)
@@ -320,3 +344,7 @@ def register_vclogger(call):
         )
 
         VC_REGISTERED.add(assistant_id)
+
+    LOG.warning(
+        "[VC Logger] Participant handlers registered for assistants."
+    )
