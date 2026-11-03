@@ -5,7 +5,7 @@ import html
 
 from pyrogram import enums, filters
 from pyrogram.errors import FloodWait
-from pyrogram.enums import ParseMode, ButtonStyle
+from pyrogram.enums import ChatMemberStatatus, ParseMode, ButtonStyle
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from pytgcalls import filters as call_filters
