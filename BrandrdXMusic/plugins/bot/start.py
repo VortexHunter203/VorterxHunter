@@ -39,8 +39,10 @@ async def start_pm(client, message: Message, _):
     await add_served_user(message.from_user.id)
     await message.react("❤")
 
-    if len(message.text.split()) > 1:
-        name = message.text.split(None, 1)[1]
+    if (
+       len(message.text.split()) > 1
+       and not message.text.split(None, 1)[1].startswith("join_")
+    ):
 
         if name[0:4] == "help":
             keyboard = help_pannel(_)
