@@ -4,8 +4,8 @@ import time
 import html
 
 from pyrogram import enums, filters
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram.errors import FloodWait
-from pyrogram.enums import ChatMemberStatatus, ButtonStyle
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from pytgcalls import filters as call_filters
@@ -25,18 +25,22 @@ from BrandrdXMusic.utils.database import (
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.WARNING)
 
+
+# GLOBAL VC LOGGER SETTINGS
+
 VC_EVENT_CACHE = {}
 VC_CHAT_LOCKS = {}
 VC_REGISTERED = set()
 
-VC_QUEUE = asyncio.Queue()
-VC_WORKER = None
-
 VC_FLOOD_UNTIL = 0
 
+# Timing
 VC_DUPLICATE_DELAY = 15
 VC_SEND_DELAY = 2
 VC_DELETE_DELAY = 5
+
+# Global sending lock
+VC_SEND_LOCK = asyncio.Lock()
 
 
 # VC LOGGER ENABLE / DISABLE COMMAND
@@ -137,24 +141,26 @@ async def _vc_delete_later(message):
         while True:
             try:
                 await message.delete()
-                return
+                break
 
             except FloodWait as error:
                 seconds = max(1, int(error.value))
+
                 LOG.warning(
                     "[VC Logger] Delete FloodWait: %s seconds",
                     seconds,
                 )
+
                 await asyncio.sleep(seconds + 1)
 
             except Exception:
-                return
+                break
 
     except asyncio.CancelledError:
         raise
 
     except Exception:
-        LOG.exception("[VC Logger] Auto delete failed")
+        LOG.exception("[VC Logger] Auto-delete failed")
 
 
 # JOIN VC BUTTON
@@ -191,169 +197,29 @@ async def _vc_join_keyboard(chat_id):
         return None
 
 
-# CLEAN EXPIRED DUPLICATE EVENTS
+# GLOBAL FLOODWAIT HANDLER
 
-def _vc_clean_cache():
-    now = time.monotonic()
-
-    for key, timestamp in list(VC_EVENT_CACHE.items()):
-        if now - timestamp >= VC_DUPLICATE_DELAY:
-            VC_EVENT_CACHE.pop(key, None)
-
-
-# SEND VC MESSAGE
-
-async def _vc_send_event(chat_id, user_id, event_type, tag):
-
-    if not await is_vclogger_on(chat_id):
-        return False
-
-    role = "MEMBER"
-
-    try:
-        member = await app.get_chat_member(
-            chat_id,
-            user_id,
-        )
-
-        if member.status == ChatMemberStatus.OWNER:
-            role = "OWNER"
-
-        elif member.status == ChatMemberStatus.ADMINISTRATOR:
-            role = "ADMIN"
-
-    except Exception:
-        pass
-
-    mention = await vclogger_mention(user_id)
-
-    text = (
-        f"<b><blockquote>{tag}\n\n"
-        f"➤ Usᴇʀ - {mention}\n"
-        f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
-        f"➤ Rᴏʟᴇ - {role}"
-        "</blockquote></b>"
-    )
-
-    keyboard = await _vc_join_keyboard(chat_id)
-
+async def _vc_wait_for_flood():
     global VC_FLOOD_UNTIL
 
     while True:
+        remaining = VC_FLOOD_UNTIL - time.monotonic()
 
-        if not await is_vclogger_on(chat_id):
-            return False
+        if remaining <= 0:
+            return
 
-        # Respect global Telegram FloodWait.
-        now = time.monotonic()
-
-        if now < VC_FLOOD_UNTIL:
-            await asyncio.sleep(VC_FLOOD_UNTIL - now)
-
-        try:
-            sent_message = await app.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode=enums.ParseMode.HTML,
-                disable_web_page_preview=True,
-            )
-
-            asyncio.create_task(
-                _vc_delete_later(sent_message)
-            )
-
-            LOG.warning(
-                "[VC Logger] %s notification sent: chat=%s user=%s",
-                event_type,
-                chat_id,
-                user_id,
-            )
-
-            return True
-
-        except FloodWait as error:
-            seconds = max(1, int(error.value))
-
-            VC_FLOOD_UNTIL = (
-                time.monotonic() + seconds + 2
-            )
-
-            LOG.warning(
-                "[VC Logger] Telegram FloodWait: waiting %s seconds",
-                seconds,
-            )
-
-            await asyncio.sleep(seconds + 2)
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception:
-            LOG.exception(
-                "[VC Logger] Message sending failed: chat=%s user=%s",
-                chat_id,
-                user_id,
-            )
-            return False
-
-
-# CENTRAL VC MESSAGE QUEUE
-
-async def _vc_message_worker():
-
-    LOG.warning("[VC Logger] Message queue worker started.")
-
-    while True:
-        event = await VC_QUEUE.get()
-
-        chat_id, user_id, event_type, tag, event_key = event
-
-        try:
-            success = await _vc_send_event(
-                chat_id,
-                user_id,
-                event_type,
-                tag,
-            )
-
-            if not success:
-                VC_EVENT_CACHE.pop(event_key, None)
-
-            else:
-                VC_EVENT_CACHE[event_key] = time.monotonic()
-
-            await asyncio.sleep(VC_SEND_DELAY)
-
-        except asyncio.CancelledError:
-            VC_EVENT_CACHE.pop(event_key, None)
-            raise
-
-        except Exception:
-            VC_EVENT_CACHE.pop(event_key, None)
-
-            LOG.exception(
-                "[VC Logger] Queue processing failed"
-            )
-
-        finally:
-            VC_QUEUE.task_done()
-
-
-# START QUEUE WORKER
-
-def _start_vc_worker():
-    global VC_WORKER
-
-    if VC_WORKER is None or VC_WORKER.done():
-        VC_WORKER = asyncio.create_task(
-            _vc_message_worker()
+        LOG.warning(
+            "[VC Logger] Waiting for Telegram: %.1f seconds",
+            remaining,
         )
+
+        await asyncio.sleep(remaining + 1)
 
 
 # VC JOIN / LEFT LOGGER - PyTgCalls v3
 
 async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
+    global VC_FLOOD_UNTIL
 
     try:
         chat_id = getattr(update, "chat_id", None)
@@ -362,6 +228,8 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
         if chat_id is None or participant is None:
             return
+
+        # Detect JOIN / LEFT
 
         if action == GroupCallParticipant.Action.JOINED:
             tag = "#JᴏɪɴᴇᴅVᴄ"
@@ -376,13 +244,25 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
         user_id = getattr(participant, "user_id", None)
 
-        if user_id is None:
+        if not user_id:
             return
+
+        # Check VC logger status
 
         if not await is_vclogger_on(chat_id):
             return
 
         event_key = (chat_id, user_id, event_type)
+
+        now = time.monotonic()
+
+        # Clean expired duplicate records
+
+        for key, timestamp in list(VC_EVENT_CACHE.items()):
+            if now - timestamp >= VC_DUPLICATE_DELAY:
+                VC_EVENT_CACHE.pop(key, None)
+
+        # Chat-wise event lock
 
         lock = VC_CHAT_LOCKS.setdefault(
             chat_id,
@@ -391,33 +271,146 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
         async with lock:
 
-            _vc_clean_cache()
+            # Prevent duplicate events
 
-            # Prevent duplicate events from all assistants.
-            if event_key in VC_EVENT_CACHE:
+            now = time.monotonic()
+
+            if (
+                now - VC_EVENT_CACHE.get(event_key, 0)
+                < VC_DUPLICATE_DELAY
+            ):
                 return
 
-            # Reserve event before queueing.
-            VC_EVENT_CACHE[event_key] = time.monotonic()
+            # Check logger status again
 
-            _start_vc_worker()
+            if not await is_vclogger_on(chat_id):
+                return
 
-            await VC_QUEUE.put(
-                (
-                    chat_id,
-                    user_id,
-                    event_type,
-                    tag,
-                    event_key,
-                )
-            )
-
-            LOG.warning(
-                "[VC Logger] Event queued: %s chat=%s user=%s",
+            LOG.info(
+                "[VC Logger] %s event received: chat=%s user=%s",
                 event_type,
                 chat_id,
                 user_id,
             )
+
+            # Detect user role
+
+            role = "MEMBER"
+
+            try:
+                member = await app.get_chat_member(
+                    chat_id,
+                    user_id,
+                )
+
+                if member.status == ChatMemberStatus.OWNER:
+                    role = "OWNER"
+
+                elif member.status == ChatMemberStatus.ADMINISTRATOR:
+                    role = "ADMIN"
+
+            except Exception as error:
+                LOG.debug(
+                    "[VC Logger] Role lookup failed for %s: %s",
+                    user_id,
+                    error,
+                )
+
+            # Generate clickable mention
+
+            mention = await vclogger_mention(user_id)
+
+            text = (
+                f"<b><blockquote>{tag}\n\n"
+                f"➤ Usᴇʀ - {mention}\n"
+                f"➤ Usᴇʀɪᴅ - <code>{user_id}</code>\n"
+                f"➤ Rᴏʟᴇ - {role}"
+                "</blockquote></b>"
+            )
+
+            keyboard = await _vc_join_keyboard(chat_id)
+
+            # GLOBAL MESSAGE SENDING
+            # All assistants use the same sending lock.
+
+            async with VC_SEND_LOCK:
+
+                while True:
+
+                    # Check logger status before every attempt
+
+                    if not await is_vclogger_on(chat_id):
+                        return
+
+                    # Wait for previous FloodWait
+
+                    await _vc_wait_for_flood()
+
+                    try:
+                        sent_message = await app.send_message(
+                            chat_id=chat_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode=enums.ParseMode.HTML,
+                            disable_web_page_preview=True,
+                        )
+
+                        # Save event only after successful delivery
+
+                        VC_EVENT_CACHE[event_key] = (
+                            time.monotonic()
+                        )
+
+                        LOG.info(
+                            "[VC Logger] Message sent: chat=%s user=%s event=%s",
+                            chat_id,
+                            user_id,
+                            event_type,
+                        )
+
+                        break
+
+                    except FloodWait as error:
+
+                        seconds = max(
+                            1,
+                            int(error.value),
+                        )
+
+                        VC_FLOOD_UNTIL = max(
+                            VC_FLOOD_UNTIL,
+                            time.monotonic() + seconds + 2,
+                        )
+
+                        LOG.warning(
+                            "[VC Logger] Telegram FloodWait: %s seconds. Retrying...",
+                            seconds,
+                        )
+
+                        await _vc_wait_for_flood()
+
+                    except asyncio.CancelledError:
+                        raise
+
+                    except Exception:
+                        LOG.exception(
+                            "[VC Logger] Message sending failed: chat=%s user=%s",
+                            chat_id,
+                            user_id,
+                        )
+                        return None
+
+                # Control message sending speed
+
+                await asyncio.sleep(VC_SEND_DELAY)
+
+            # Auto-delete message
+
+            asyncio.create_task(
+                _vc_delete_later(sent_message)
+            )
+
+            return sent_message
 
     except asyncio.CancelledError:
         raise
@@ -426,6 +419,7 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
         LOG.exception(
             "[VC Logger] Participant handler failed"
         )
+        return None
 
 
 # REGISTER LOGGER WITH ALL 5 ASSISTANTS
@@ -445,7 +439,7 @@ def register_vclogger(call):
         | GroupCallParticipant.Action.LEFT
     )
 
-    registered = 0
+    registered_count = 0
 
     for assistant in assistants:
 
@@ -463,9 +457,9 @@ def register_vclogger(call):
         )
 
         VC_REGISTERED.add(assistant_id)
-        registered += 1
+        registered_count += 1
 
     LOG.warning(
-        "[VC Logger] Participant handlers registered: %s",
-        registered,
+        "[VC Logger] Participant handlers registered. New assistants: %s",
+        registered_count,
     )
