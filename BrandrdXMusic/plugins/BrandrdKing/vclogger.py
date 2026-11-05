@@ -4,7 +4,7 @@ import time
 import html
 
 from pyrogram import enums, filters
-from pyrogram.enums import ChatMemberStatus, ButtonStyle
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -45,37 +45,38 @@ VC_SEND_LOCK = asyncio.Lock()
 # ==============================
 # JOIN VC BUTTON
 # ==============================
-
 async def _vc_join_keyboard(chat_id, client=None):
     client = client or app
+
     try:
         chat = await client.get_chat(chat_id)
         username = getattr(chat, "username", None)
 
         if username:
             vc_url = f"https://t.me/{username}?voicechat"
-
         elif str(chat_id).startswith("-100"):
-            vc_url = (
-                f"https://t.me/c/{str(chat_id)[4:]}?voicechat"
-            )
-
+            vc_url = f"https://t.me/c/{str(chat_id)[4:]}?voicechat"
         else:
             return None
 
-        return InlineKeyboardMarkup(
+        keyboard = InlineKeyboardMarkup(
             [
                 [
                     InlineKeyboardButton(
                         "🎧 Join To VC",
                         url=vc_url,
-                        style=ButtonStyle.SUCCESS,
                     )
                 ]
             ]
         )
 
+        return keyboard
+
     except Exception:
+        LOG.exception(
+            "[VC Logger] Button creation error: chat=%s",
+            chat_id,
+        )
         return None
 
 # ==============================
