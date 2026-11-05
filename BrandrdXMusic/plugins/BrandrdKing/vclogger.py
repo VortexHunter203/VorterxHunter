@@ -37,6 +37,7 @@ VC_FLOOD_UNTIL = 0
 
 VC_DUPLICATE_DELAY = 45
 VC_SEND_DELAY = 10
+VC_DELETE_DELAY = 10
 
 VC_SEND_LOCK = asyncio.Lock()
 
@@ -45,15 +46,30 @@ VC_SEND_LOCK = asyncio.Lock()
 # JOIN VC BUTTON
 # ==============================
 
-async def _vc_join_keyboard(chat_id):
+async def _vc_join_keyboard(chat_id, client=None):
+
+    client = client or app
 
     try:
-        chat_id_str = str(chat_id)
+        chat = await client.get_chat(chat_id)
+        username = getattr(chat, "username", None)
 
-        if not chat_id_str.startswith("-100"):
-            return None
+        if username:
+            vc_url = f"https://t.me/{username}?voicechat"
 
-        vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+        else:
+            chat_id_str = str(chat_id)
+
+            if not chat_id_str.startswith("-100"):
+                LOG.warning(
+                    "[VC Logger] Cannot create VC link for chat: %s",
+                    chat_id,
+                )
+                return None
+
+            vc_url = (
+                f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+            )
 
         return InlineKeyboardMarkup(
             [
@@ -68,8 +84,84 @@ async def _vc_join_keyboard(chat_id):
         )
 
     except Exception:
-        LOG.exception("[VC Logger] Join button creation failed")
+        LOG.exception(
+            "[VC Logger] Join button creation failed: chat=%s",
+            chat_id,
+        )
+
+        # Fallback for private supergroups
+        try:
+            chat_id_str = str(chat_id)
+
+            if chat_id_str.startswith("-100"):
+                vc_url = (
+                    f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+                )
+
+                return InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "🎧 Join To VC",
+                                url=vc_url,
+                                style=ButtonStyle.SUCCESS,
+                            )
+                        ]
+                    ]
+                )
+
+        except Exception:
+            LOG.exception("[VC Logger] VC button fallback failed")
+
         return None
+
+
+# ==============================
+# AUTO DELETE NOTIFICATION
+# ==============================
+
+async def _vc_delete_later(message):
+
+    try:
+        await asyncio.sleep(VC_DELETE_DELAY)
+
+        while True:
+
+            try:
+                await message.delete()
+
+                LOG.info(
+                    "[VC Logger] Notification deleted after %s seconds",
+                    VC_DELETE_DELAY,
+                )
+
+                break
+
+            except FloodWait as error:
+
+                seconds = max(1, int(error.value))
+
+                LOG.warning(
+                    "[VC Logger] Delete FloodWait: waiting %s seconds",
+                    seconds,
+                )
+
+                await asyncio.sleep(seconds + 1)
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception:
+                LOG.exception(
+                    "[VC Logger] Notification auto-delete failed"
+                )
+                break
+
+    except asyncio.CancelledError:
+        raise
+
+    except Exception:
+        LOG.exception("[VC Logger] Auto-delete task failed")
 
 
 # ==============================
@@ -266,7 +358,10 @@ async def _vc_send_notification(
 
     # Create Join VC button
 
-    keyboard = await _vc_join_keyboard(chat_id)
+    keyboard = await _vc_join_keyboard(
+        chat_id,
+        client,
+    )
 
     async with VC_SEND_LOCK:
 
@@ -290,6 +385,12 @@ async def _vc_send_notification(
                 chat_id,
                 user_id,
                 event_type,
+            )
+
+            # Delete notification after 10 seconds
+
+            asyncio.create_task(
+                _vc_delete_later(sent)
             )
 
             await asyncio.sleep(VC_SEND_DELAY)
@@ -329,6 +430,12 @@ async def _vc_send_notification(
                     "[VC Logger] Notification sent after FloodWait: chat=%s user=%s",
                     chat_id,
                     user_id,
+                )
+
+                # Delete retry notification after 10 seconds
+
+                asyncio.create_task(
+                    _vc_delete_later(sent)
                 )
 
                 await asyncio.sleep(VC_SEND_DELAY)
