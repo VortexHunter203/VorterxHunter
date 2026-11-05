@@ -79,27 +79,27 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
         ],
         [
             InlineKeyboardButton(
-                text="▶️",
+                text="▷",
                 callback_data=f"ADMIN Resume|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏸️",
+                text="II",
                 callback_data=f"ADMIN Pause|{chat_id}",
                 style=COLORS[0],
             ),
             InlineKeyboardButton(
-                text="🔄",
+                text="↻",
                 callback_data=f"ADMIN Replay|{chat_id}",
                 style=COLORS[2],
             ),
             InlineKeyboardButton(
-                text="⏭️",
+                text="‣‣I",
                 callback_data=f"ADMIN Skip|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏹️",
+                text="▢",
                 callback_data=f"ADMIN Stop|{chat_id}",
                 style=COLORS[2],
             ),
@@ -120,10 +120,10 @@ def stream_markup_timer(_, vidid, chat_id, played, dur):
 
 def autoplay_markup(chat_id, mode=None):
     if mode is True:
-        text = "🟢 Autoplay: ON"
+        text = "Autoplay: ON"
         style = COLORS[2]
     elif mode is False:
-        text = "🔴 Autoplay: OFF"
+        text = "Autoplay: OFF"
         style = COLORS[1]
     else:
         text = "🔁 Autoplay: ON/OFF"
@@ -136,7 +136,7 @@ def autoplay_markup(chat_id, mode=None):
             style=style,
         ),
         InlineKeyboardButton(
-            text="💬 Support",
+            text="Support",
             url="https://t.me/BrandedSupport",
             style=COLORS[0],
         ),
@@ -150,27 +150,27 @@ def stream_markup(_, videoid, chat_id):
     return [
         [
             InlineKeyboardButton(
-                text="▶️",
+                text="▷",
                 callback_data=f"ADMIN Resume|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏸️",
+                text="II",
                 callback_data=f"ADMIN Pause|{chat_id}",
                 style=COLORS[0],
             ),
             InlineKeyboardButton(
-                text="🔄",
+                text="↻",
                 callback_data=f"ADMIN Replay|{chat_id}",
                 style=COLORS[2],
             ),
             InlineKeyboardButton(
-                text="⏭️",
+                text="‣‣I",
                 callback_data=f"ADMIN Skip|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏹️",
+                text="▢",
                 callback_data=f"ADMIN Stop|{chat_id}",
                 style=COLORS[2],
             ),
@@ -267,7 +267,7 @@ def slider_markup(_, videoid, user_id, query, query_type, channel, fplay):
         ],
         [
             InlineKeyboardButton(
-                text="◀️",
+                text="◁",
                 callback_data=f"slider B|{query_type}|{query}|{user_id}|{channel}|{fplay}",
                 style=COLORS[0],
             ),
@@ -277,7 +277,7 @@ def slider_markup(_, videoid, user_id, query, query_type, channel, fplay):
                 style=COLORS[2],
             ),
             InlineKeyboardButton(
-                text="▶️",
+                text=" ▷",
                 callback_data=f"slider F|{query_type}|{query}|{user_id}|{channel}|{fplay}",
                 style=COLORS[1],
             ),
