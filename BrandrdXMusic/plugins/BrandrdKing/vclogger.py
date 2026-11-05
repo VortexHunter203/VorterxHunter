@@ -4,7 +4,7 @@ import time
 import html
 
 from pyrogram import enums, filters
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -35,9 +35,9 @@ VC_PYRO_CLIENTS = {}
 
 VC_FLOOD_UNTIL = 0
 
-VC_DUPLICATE_DELAY = 45
-VC_SEND_DELAY = 10
-VC_DELETE_DELAY = 10
+VC_DUPLICATE_DELAY = 15
+VC_SEND_DELAY = 2
+VC_DELETE_DELAY = 5
 
 VC_SEND_LOCK = asyncio.Lock()
 
@@ -54,14 +54,14 @@ async def _vc_join_keyboard(chat_id, client=None):
         username = getattr(chat, "username", None)
 
         if username:
-            vc_url = f"https://t.me/{username}"
+            vc_url = f"https://t.me/{username}?voicechat"
         else:
             chat_id_str = str(chat_id)
 
             if not chat_id_str.startswith("-100"):
                 return None
 
-            vc_url = f"https://t.me/c/{chat_id_str[4:]}"
+            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
 
         return InlineKeyboardMarkup(
             [
@@ -69,6 +69,7 @@ async def _vc_join_keyboard(chat_id, client=None):
                     InlineKeyboardButton(
                         text="🎧 Join To VC",
                         url=vc_url,
+                        style=ButtonStyle.SUCCESS,
                     )
                 ]
             ]
@@ -238,11 +239,19 @@ async def vclogger_command(client, message):
 # USER MENTION
 # ==============================
 
-def vclogger_mention(user_id):
+async def vclogger_mention(user_id: int, client=None):
+    """Return a clickable mention using the user's actual first name."""
+    client = client or app
+
+    try:
+        user = await client.get_users(user_id)
+        name = user.first_name or "User"
+    except Exception:
+        name = "User"
 
     return (
         f"<a href='tg://user?id={user_id}'>"
-        f"User</a>"
+        f"{html.escape(name)}</a>"
     )
 
 
@@ -312,7 +321,7 @@ async def _vc_send_notification(
         user_id,
     )
 
-    mention = vclogger_mention(user_id)
+    mention = await vclogger_mention(user_id, client)
 
     text = (
         f"<b><blockquote>{tag}\n\n"
