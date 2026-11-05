@@ -80,22 +80,22 @@ def aq_markup(_, chat_id):
     buttons = [
         [
             InlineKeyboardButton(
-                text="▶️",
+                text="▷",
                 callback_data=f"ADMIN Resume|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏸️",
+                text="II",
                 callback_data=f"ADMIN Pause|{chat_id}",
                 style=COLORS[0],
             ),
             InlineKeyboardButton(
-                text="⏭️",
+                text="‣‣I",
                 callback_data=f"ADMIN Skip|{chat_id}",
                 style=COLORS[1],
             ),
             InlineKeyboardButton(
-                text="⏹️",
+                text="▢",
                 callback_data=f"ADMIN Stop|{chat_id}",
                 style=COLORS[2],
             ),
