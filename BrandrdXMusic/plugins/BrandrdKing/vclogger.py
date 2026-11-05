@@ -4,7 +4,7 @@ import time
 import html
 
 from pyrogram import enums, filters
-from pyrogram.enums import ChatMemberStatus, ButtonStyle
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -23,6 +23,7 @@ from BrandrdXMusic.utils.database import (
 
 
 LOG = logging.getLogger(__name__)
+
 
 # ==============================
 # VC LOGGER SETTINGS
@@ -46,40 +47,31 @@ VC_SEND_LOCK = asyncio.Lock()
 # JOIN VC BUTTON
 # ==============================
 
-keyboard = await _vc_join_keyboard(chat_id, app)
-    client = client or app
+async def _vc_join_keyboard(chat_id, client=None):
 
+    client = client or app
     chat_id_str = str(chat_id)
 
     try:
         chat = await client.get_chat(chat_id)
+
         username = getattr(chat, "username", None)
 
         if username:
             vc_url = f"https://t.me/{username}?voicechat"
 
         elif chat_id_str.startswith("-100"):
-            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+            vc_url = (
+                f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+            )
 
         else:
-            LOG.warning(
-                "[VC Logger] Cannot create VC button: chat=%s",
+            LOG.error(
+                "[VC Logger] Cannot generate VC URL: chat=%s",
                 chat_id,
             )
             return None
 
-    except Exception:
-        LOG.exception(
-            "[VC Logger] Chat lookup failed: chat=%s",
-            chat_id,
-        )
-
-        if chat_id_str.startswith("-100"):
-            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
-        else:
-            return None
-
-    try:
         keyboard = InlineKeyboardMarkup(
             [
                 [
@@ -92,17 +84,19 @@ keyboard = await _vc_join_keyboard(chat_id, app)
         )
 
         LOG.info(
-            "[VC Logger] Join VC button created: %s",
+            "[VC Logger] Join VC keyboard created: %s",
             vc_url,
         )
 
         return keyboard
 
     except Exception:
+
         LOG.exception(
             "[VC Logger] Keyboard creation failed: chat=%s",
             chat_id,
         )
+
         return None
 
 
@@ -113,16 +107,18 @@ keyboard = await _vc_join_keyboard(chat_id, app)
 async def _vc_delete_later(message):
 
     try:
+
         await asyncio.sleep(VC_DELETE_DELAY)
 
         while True:
 
             try:
+
                 await message.delete()
 
                 LOG.info(
-                    "[VC Logger] Notification deleted after %s seconds",
-                    VC_DELETE_DELAY,
+                    "[VC Logger] Notification deleted: %s",
+                    message.id,
                 )
 
                 break
@@ -132,7 +128,7 @@ async def _vc_delete_later(message):
                 seconds = max(1, int(error.value))
 
                 LOG.warning(
-                    "[VC Logger] Delete FloodWait: waiting %s seconds",
+                    "[VC Logger] Delete FloodWait: %s seconds",
                     seconds,
                 )
 
@@ -142,16 +138,21 @@ async def _vc_delete_later(message):
                 raise
 
             except Exception:
+
                 LOG.exception(
-                    "[VC Logger] Notification auto-delete failed"
+                    "[VC Logger] Notification deletion failed"
                 )
+
                 break
 
     except asyncio.CancelledError:
         raise
 
     except Exception:
-        LOG.exception("[VC Logger] Auto-delete task failed")
+
+        LOG.exception(
+            "[VC Logger] Auto-delete task failed"
+        )
 
 
 # ==============================
@@ -255,7 +256,10 @@ async def vclogger_command(client, message):
         raise
 
     except Exception:
-        LOG.exception("[VC Logger] Command failed")
+
+        LOG.exception(
+            "[VC Logger] Command failed"
+        )
 
 
 # ==============================
@@ -263,13 +267,17 @@ async def vclogger_command(client, message):
 # ==============================
 
 async def vclogger_mention(user_id: int, client=None):
-    """Return a clickable mention using the user's actual first name."""
+
     client = client or app
 
     try:
+
         user = await client.get_users(user_id)
+
         name = user.first_name or "User"
+
     except Exception:
+
         name = "User"
 
     return (
@@ -283,6 +291,8 @@ async def vclogger_mention(user_id: int, client=None):
 # ==============================
 
 async def _vc_get_role(client, chat_id, user_id):
+
+    global VC_FLOOD_UNTIL
 
     try:
 
@@ -301,8 +311,6 @@ async def _vc_get_role(client, chat_id, user_id):
 
     except FloodWait as error:
 
-        global VC_FLOOD_UNTIL
-
         VC_FLOOD_UNTIL = max(
             VC_FLOOD_UNTIL,
             time.monotonic() + int(error.value) + 2,
@@ -316,6 +324,12 @@ async def _vc_get_role(client, chat_id, user_id):
         return "MEMBER"
 
     except Exception:
+
+        LOG.exception(
+            "[VC Logger] Role lookup failed: user=%s",
+            user_id,
+        )
+
         return "MEMBER"
 
 
@@ -333,10 +347,14 @@ async def _vc_send_notification(
     global VC_FLOOD_UNTIL
 
     if event_type == "joined":
+
         tag = "#JᴏɪɴᴇᴅVᴄ"
 
     else:
+
         tag = "#LᴇғᴛVᴄ"
+
+    # Get user role using assistant session
 
     role = await _vc_get_role(
         client,
@@ -344,7 +362,14 @@ async def _vc_send_notification(
         user_id,
     )
 
-    mention = await vclogger_mention(user_id, client)
+    # Get clickable mention
+
+    mention = await vclogger_mention(
+        user_id,
+        client,
+    )
+
+    # Notification text
 
     text = (
         f"<b><blockquote>{tag}\n\n"
@@ -354,21 +379,32 @@ async def _vc_send_notification(
         "</blockquote></b>"
     )
 
-    # Create Join VC button
+    # ==============================
+    # CREATE BUTTON USING MAIN BOT
+    # ==============================
 
-    keyboard = await _vc_join_keyboard(chat_id, client)
+    keyboard = await _vc_join_keyboard(
+        chat_id,
+        app,
+    )
 
     if keyboard is None:
+
         LOG.error(
-            "[VC Logger] Join button is None: chat=%s",
+            "[VC Logger] Keyboard is None: chat=%s",
             chat_id,
         )
+
     else:
+
         LOG.info(
-            "[VC Logger] Join button created: chat=%s",
-             chat_id,
+            "[VC Logger] Join button successfully created"
         )
-        
+
+    # ==============================
+    # SEND NOTIFICATION USING MAIN BOT
+    # ==============================
+
     async with VC_SEND_LOCK:
 
         if not await is_vclogger_on(chat_id):
@@ -378,7 +414,7 @@ async def _vc_send_notification(
 
         try:
 
-            sent = await client.send_message(
+            sent = await app.send_message(
                 chat_id=chat_id,
                 text=text,
                 reply_markup=keyboard,
@@ -387,13 +423,14 @@ async def _vc_send_notification(
             )
 
             LOG.info(
-                "[VC Logger] Notification sent: chat=%s user=%s event=%s",
+                "[VC Logger] Notification sent using MAIN BOT: "
+                "chat=%s user=%s event=%s",
                 chat_id,
                 user_id,
                 event_type,
             )
 
-            # Delete notification after 10 seconds
+            # Auto delete
 
             asyncio.create_task(
                 _vc_delete_later(sent)
@@ -405,7 +442,10 @@ async def _vc_send_notification(
 
         except FloodWait as error:
 
-            seconds = max(1, int(error.value))
+            seconds = max(
+                1,
+                int(error.value),
+            )
 
             VC_FLOOD_UNTIL = max(
                 VC_FLOOD_UNTIL,
@@ -413,7 +453,7 @@ async def _vc_send_notification(
             )
 
             LOG.warning(
-                "[VC Logger] FloodWait: %s seconds. Waiting before one retry.",
+                "[VC Logger] Send FloodWait: %s seconds",
                 seconds,
             )
 
@@ -421,6 +461,8 @@ async def _vc_send_notification(
 
             if not await is_vclogger_on(chat_id):
                 return None
+
+            # Retry using main bot
 
             try:
 
@@ -433,12 +475,11 @@ async def _vc_send_notification(
                 )
 
                 LOG.info(
-                    "[VC Logger] Notification sent after FloodWait: chat=%s user=%s",
+                    "[VC Logger] Notification sent after FloodWait: "
+                    "chat=%s user=%s",
                     chat_id,
                     user_id,
                 )
-
-                # Delete retry notification after 10 seconds
 
                 asyncio.create_task(
                     _vc_delete_later(sent)
@@ -452,20 +493,26 @@ async def _vc_send_notification(
 
                 VC_FLOOD_UNTIL = max(
                     VC_FLOOD_UNTIL,
-                    time.monotonic() + int(retry_error.value) + 2,
+                    time.monotonic()
+                    + int(retry_error.value)
+                    + 2,
                 )
 
                 LOG.error(
-                    "[VC Logger] Second FloodWait. Event skipped: %s seconds",
+                    "[VC Logger] Second FloodWait: %s seconds",
                     retry_error.value,
                 )
 
                 return None
 
+            except asyncio.CancelledError:
+                raise
+
             except Exception:
 
                 LOG.exception(
-                    "[VC Logger] Retry message failed: chat=%s user=%s",
+                    "[VC Logger] Retry message failed: "
+                    "chat=%s user=%s",
                     chat_id,
                     user_id,
                 )
@@ -478,7 +525,8 @@ async def _vc_send_notification(
         except Exception:
 
             LOG.exception(
-                "[VC Logger] Message sending failed: chat=%s user=%s",
+                "[VC Logger] Main bot notification failed: "
+                "chat=%s user=%s",
                 chat_id,
                 user_id,
             )
@@ -497,25 +545,46 @@ async def participants_change_handler(
 
     try:
 
+        # Get matching Pyrogram assistant
+
         pyro_client = VC_PYRO_CLIENTS.get(
             id(client),
             app,
         )
 
-        chat_id = getattr(update, "chat_id", None)
-        participant = getattr(update, "participant", None)
-        action = getattr(update, "action", None)
+        chat_id = getattr(
+            update,
+            "chat_id",
+            None,
+        )
+
+        participant = getattr(
+            update,
+            "participant",
+            None,
+        )
+
+        action = getattr(
+            update,
+            "action",
+            None,
+        )
 
         if chat_id is None or participant is None:
             return
 
+        # Detect JOIN / LEFT
+
         if action == GroupCallParticipant.Action.JOINED:
+
             event_type = "joined"
 
         elif action == GroupCallParticipant.Action.LEFT:
+
             event_type = "left"
 
         else:
+
             return
 
         user_id = getattr(
@@ -526,6 +595,8 @@ async def participants_change_handler(
 
         if not user_id:
             return
+
+        # Check logger status
 
         if not await is_vclogger_on(chat_id):
             return
@@ -540,12 +611,18 @@ async def participants_change_handler(
 
         # Clean expired events
 
-        for key, timestamp in list(VC_EVENT_CACHE.items()):
+        for key, timestamp in list(
+            VC_EVENT_CACHE.items()
+        ):
 
             if now - timestamp >= VC_DUPLICATE_DELAY:
-                VC_EVENT_CACHE.pop(key, None)
 
-        # Chat-wise event lock
+                VC_EVENT_CACHE.pop(
+                    key,
+                    None,
+                )
+
+        # Chat-wise lock
 
         lock = VC_CHAT_LOCKS.setdefault(
             chat_id,
@@ -556,7 +633,7 @@ async def participants_change_handler(
 
             now = time.monotonic()
 
-            # Block duplicate events from all 5 assistants
+            # Prevent duplicate events from all assistants
 
             last_event = VC_EVENT_CACHE.get(
                 event_key,
@@ -569,23 +646,35 @@ async def participants_change_handler(
             if not await is_vclogger_on(chat_id):
                 return
 
-            # Reserve event before sending
+            # Reserve event
 
             VC_EVENT_CACHE[event_key] = now
 
             LOG.info(
-                "[VC Logger] %s: chat=%s user=%s",
+                "[VC Logger] %s event received: chat=%s user=%s",
                 event_type,
                 chat_id,
                 user_id,
             )
 
-            await _vc_send_notification(
+            # Send notification
+
+            sent = await _vc_send_notification(
                 pyro_client,
                 chat_id,
                 user_id,
                 event_type,
             )
+
+            # Remove reservation if sending failed,
+            # so another event can retry later.
+
+            if sent is None:
+
+                VC_EVENT_CACHE.pop(
+                    event_key,
+                    None,
+                )
 
     except asyncio.CancelledError:
         raise
@@ -625,6 +714,8 @@ def register_vclogger(call):
 
         assistant_id = id(assistant)
 
+        # Save matching Pyrogram client
+
         VC_PYRO_CLIENTS[assistant_id] = pyro_client
 
         if assistant_id in VC_REGISTERED:
@@ -636,6 +727,7 @@ def register_vclogger(call):
         )
 
         VC_REGISTERED.add(assistant_id)
+
         registered_count += 1
 
     LOG.warning(
