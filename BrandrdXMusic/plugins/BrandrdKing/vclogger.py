@@ -4,7 +4,7 @@ import time
 import html
 
 from pyrogram import enums, filters
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ButtonStyle
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -78,6 +78,7 @@ async def _vc_join_keyboard(chat_id, client=None):
                     InlineKeyboardButton(
                         text="🎧 Join To VC",
                         url=vc_url,
+                        style=ButtonStyle.SUCCESS,
                     )
                 ]
             ]
