@@ -23,7 +23,6 @@ from BrandrdXMusic.utils.database import (
 
 
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.WARNING)
 
 
 # GLOBAL VC LOGGER SETTINGS
