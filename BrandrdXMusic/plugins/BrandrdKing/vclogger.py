@@ -48,20 +48,17 @@ VC_SEND_LOCK = asyncio.Lock()
 
 async def _vc_join_keyboard(chat_id, client=None):
     client = client or app
-
     try:
-        chat_id_str = str(chat_id)
-
-        # Public group
         chat = await client.get_chat(chat_id)
         username = getattr(chat, "username", None)
 
         if username:
             vc_url = f"https://t.me/{username}?voicechat"
 
-        # Private supergroup
-        elif chat_id_str.startswith("-100"):
-            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+        elif str(chat_id).startswith("-100"):
+            vc_url = (
+                f"https://t.me/c/{str(chat_id)[4:]}?voicechat"
+            )
 
         else:
             return None
@@ -79,24 +76,6 @@ async def _vc_join_keyboard(chat_id, client=None):
         )
 
     except Exception:
-        # Private supergroup fallback
-        chat_id_str = str(chat_id)
-
-        if chat_id_str.startswith("-100"):
-            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
-
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "🎧 Join To VC",
-                            url=vc_url,
-                            style=ButtonStyle.SUCCESS,
-                        )
-                    ]
-                ]
-            )
-
         return None
 
 # ==============================
