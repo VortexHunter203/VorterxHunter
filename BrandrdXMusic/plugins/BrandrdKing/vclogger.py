@@ -48,29 +48,24 @@ VC_SEND_LOCK = asyncio.Lock()
 # ==============================
 
 async def _vc_join_keyboard(chat_id, client=None):
-
     client = client or app
 
     try:
+        chat_id_str = str(chat_id)
+
+        # Public group
         chat = await client.get_chat(chat_id)
         username = getattr(chat, "username", None)
 
         if username:
             vc_url = f"https://t.me/{username}?voicechat"
 
+        # Private supergroup
+        elif chat_id_str.startswith("-100"):
+            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+
         else:
-            chat_id_str = str(chat_id)
-
-            if not chat_id_str.startswith("-100"):
-                LOG.warning(
-                    "[VC Logger] Cannot create VC link for chat: %s",
-                    chat_id,
-                )
-                return None
-
-            vc_url = (
-                f"https://t.me/c/{chat_id_str[4:]}?voicechat"
-            )
+            return None
 
         return InlineKeyboardMarkup(
             [
@@ -85,37 +80,25 @@ async def _vc_join_keyboard(chat_id, client=None):
         )
 
     except Exception:
-        LOG.exception(
-            "[VC Logger] Join button creation failed: chat=%s",
-            chat_id,
-        )
+        # Private supergroup fallback
+        chat_id_str = str(chat_id)
 
-        # Fallback for private supergroups
-        try:
-            chat_id_str = str(chat_id)
+        if chat_id_str.startswith("-100"):
+            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
 
-            if chat_id_str.startswith("-100"):
-                vc_url = (
-                    f"https://t.me/c/{chat_id_str[4:]}?voicechat"
-                )
-
-                return InlineKeyboardMarkup(
+            return InlineKeyboardMarkup(
+                [
                     [
-                        [
-                            InlineKeyboardButton(
-                                "🎧 Join To VC",
-                                url=vc_url,
-                                style=ButtonStyle.SUCCESS,
-                            )
-                        ]
+                        InlineKeyboardButton(
+                            "🎧 Join To VC",
+                            url=vc_url,
+                            style=ButtonStyle.SUCCESS,
+                        )
                     ]
-                )
-
-        except Exception:
-            LOG.exception("[VC Logger] VC button fallback failed")
+                ]
+            )
 
         return None
-
 
 # ==============================
 # AUTO DELETE NOTIFICATION
