@@ -51,7 +51,7 @@ async def start_pm(client, message: Message, _):
                 photo=config.START_IMG_URL,
                 caption=_["help_1"].format(config.SUPPORT_CHAT),
                 reply_markup=keyboard,
-                effect_id=effect_id,
+                message_effect_id=effect_id,
             )
 
         if name[0:3] == "sud":
