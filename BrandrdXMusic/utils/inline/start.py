@@ -70,7 +70,7 @@ def private_panel(_):
         [
             InlineKeyboardButton(
                 text=_["S_B_5"],
-                url=f"tg://user?id={config.OWNER_ID}"
+                url=f"tg://user?id={config.OWNER_ID}",
                 style=s[4],
             ),
         ],
