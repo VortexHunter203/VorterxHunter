@@ -424,7 +424,7 @@ async def _vc_send_notification(
 
             try:
 
-                sent = await client.send_message(
+                sent = await app.send_message(
                     chat_id=chat_id,
                     text=text,
                     reply_markup=keyboard,
