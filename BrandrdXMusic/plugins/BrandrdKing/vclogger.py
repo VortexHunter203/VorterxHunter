@@ -49,31 +49,54 @@ VC_SEND_LOCK = asyncio.Lock()
 async def _vc_join_keyboard(chat_id, client=None):
     client = client or app
 
+    chat_id_str = str(chat_id)
+
     try:
         chat = await client.get_chat(chat_id)
         username = getattr(chat, "username", None)
 
         if username:
             vc_url = f"https://t.me/{username}?voicechat"
-        else:
-            chat_id_str = str(chat_id)
 
-            if not chat_id_str.startswith("-100"):
-                return None
-
+        elif chat_id_str.startswith("-100"):
             vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
 
-        return InlineKeyboardMarkup(
+        else:
+            LOG.warning(
+                "[VC Logger] Cannot create VC button: chat=%s",
+                chat_id,
+            )
+            return None
+
+    except Exception:
+        LOG.exception(
+            "[VC Logger] Chat lookup failed: chat=%s",
+            chat_id,
+        )
+
+        if chat_id_str.startswith("-100"):
+            vc_url = f"https://t.me/c/{chat_id_str[4:]}?voicechat"
+        else:
+            return None
+
+    try:
+        keyboard = InlineKeyboardMarkup(
             [
                 [
                     InlineKeyboardButton(
                         text="🎧 Join To VC",
                         url=vc_url,
-                        style=ButtonStyle.SUCCESS,
                     )
                 ]
             ]
         )
+
+        LOG.info(
+            "[VC Logger] Join VC button created: %s",
+            vc_url,
+        )
+
+        return keyboard
 
     except Exception:
         LOG.exception(
