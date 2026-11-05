@@ -31,6 +31,8 @@ LOG.setLevel(logging.WARNING)
 VC_EVENT_CACHE = {}
 VC_CHAT_LOCKS = {}
 VC_REGISTERED = set()
+# Maps each PyTgCalls instance to its underlying Pyrogram assistant client.
+VC_PYRO_CLIENTS = {}
 
 VC_FLOOD_UNTIL = 0
 
@@ -118,9 +120,10 @@ async def vclogger_command(client, message):
 
 # USER MENTION
 
-async def vclogger_mention(user_id: int):
+async def vclogger_mention(user_id: int, client=None):
+    client = client or app
     try:
-        user = await app.get_users(user_id)
+        user = await client.get_users(user_id)
         name = user.first_name or "User"
 
     except Exception:
@@ -165,9 +168,10 @@ async def _vc_delete_later(message):
 
 # JOIN VC BUTTON
 
-async def _vc_join_keyboard(chat_id):
+async def _vc_join_keyboard(chat_id, client=None):
+    client = client or app
     try:
-        chat = await app.get_chat(chat_id)
+        chat = await client.get_chat(chat_id)
         username = getattr(chat, "username", None)
 
         if username:
@@ -218,8 +222,12 @@ async def _vc_wait_for_flood():
 
 # VC JOIN / LEFT LOGGER - PyTgCalls v3
 
-async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
+async def participants_change_handler(client, update: UpdatedGroupCallParticipant):
     global VC_FLOOD_UNTIL
+
+    # PyTgCalls passes its own instance as `client`; use the matching
+    # Pyrogram userbot session for Telegram chat operations.
+    pyro_client = VC_PYRO_CLIENTS.get(id(client), app)
 
     try:
         chat_id = getattr(update, "chat_id", None)
@@ -298,7 +306,7 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
             role = "MEMBER"
 
             try:
-                member = await app.get_chat_member(
+                member = await pyro_client.get_chat_member(
                     chat_id,
                     user_id,
                 )
@@ -318,7 +326,7 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
             # Generate clickable mention
 
-            mention = await vclogger_mention(user_id)
+            mention = await vclogger_mention(user_id, pyro_client)
 
             text = (
                 f"<b><blockquote>{tag}\n\n"
@@ -328,7 +336,7 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
                 "</blockquote></b>"
             )
 
-            keyboard = await _vc_join_keyboard(chat_id)
+            keyboard = await _vc_join_keyboard(chat_id, pyro_client)
 
             # GLOBAL MESSAGE SENDING
             # All assistants use the same sending lock.
@@ -347,7 +355,9 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
                     await _vc_wait_for_flood()
 
                     try:
-                        sent_message = await app.send_message(
+                        # Send with the Pyrogram session paired to this PyTgCalls
+                        # instance. The bot `app` session may not have this peer cached.
+                        sent_message = await pyro_client.send_message(
                             chat_id=chat_id,
                             text=text,
                             reply_markup=keyboard,
@@ -394,7 +404,9 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
                     except Exception:
                         LOG.exception(
-                            "[VC Logger] Message sending failed: chat=%s user=%s",
+                            "[VC Logger] Message sending failed via assistant %s: chat=%s user=%s. "
+                            "Ensure this assistant is a group member with send-message permission.",
+                            getattr(getattr(pyro_client, "me", None), "id", "unknown"),
                             chat_id,
                             user_id,
                         )
@@ -427,11 +439,11 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 def register_vclogger(call):
 
     assistants = [
-        call.one,
-        call.two,
-        call.three,
-        call.four,
-        call.five,
+        (call.one, call.userbot1),
+        (call.two, call.userbot2),
+        (call.three, call.userbot3),
+        (call.four, call.userbot4),
+        (call.five, call.userbot5),
     ]
 
     participant_filter = call_filters.call_participant(
@@ -441,12 +453,13 @@ def register_vclogger(call):
 
     registered_count = 0
 
-    for assistant in assistants:
+    for assistant, pyro_client in assistants:
 
-        if assistant is None:
+        if assistant is None or pyro_client is None:
             continue
 
         assistant_id = id(assistant)
+        VC_PYRO_CLIENTS[assistant_id] = pyro_client
 
         if assistant_id in VC_REGISTERED:
             continue
