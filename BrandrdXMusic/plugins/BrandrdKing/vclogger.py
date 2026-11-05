@@ -16,6 +16,7 @@ from pytgcalls.types import (
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.database import (
+    is_vclogger_on,
     vclogger_on,
     vclogger_off,
 )
@@ -31,40 +32,15 @@ VC_EVENT_CACHE = {}
 VC_CHAT_LOCKS = {}
 VC_REGISTERED = set()
 
-# Enabled by default in every group; /vclogger off disables locally.
-VC_DISABLED_CHATS = set()
-
 VC_FLOOD_UNTIL = 0
 
 # Timing
 VC_DUPLICATE_DELAY = 15
-VC_SEND_DELAY = 3
+VC_SEND_DELAY = 2
 VC_DELETE_DELAY = 5
 
 # Global sending lock
 VC_SEND_LOCK = asyncio.Lock()
-
-
-async def _safe_command_reply(message, text, **kwargs):
-    """Send command feedback while respecting Telegram FloodWait."""
-    try:
-        return await message.reply_text(text, **kwargs)
-    except FloodWait as error:
-        wait_seconds = max(1, int(error.value))
-        LOG.warning(
-            "[VC Logger] Command reply FloodWait: waiting %s seconds",
-            wait_seconds,
-        )
-        await asyncio.sleep(wait_seconds + 1)
-        try:
-            return await message.reply_text(text, **kwargs)
-        except FloodWait as retry_error:
-            LOG.warning(
-                "[VC Logger] Command reply still rate-limited for %s seconds; "
-                "skipping this reply",
-                retry_error.value,
-            )
-            return None
 
 
 # VC LOGGER ENABLE / DISABLE COMMAND
@@ -86,15 +62,15 @@ async def vclogger_command(client, message):
             ChatMemberStatus.OWNER,
             ChatMemberStatus.ADMINISTRATOR,
         ):
-            return await _safe_command_reply(message, 
+            return await message.reply_text(
                 "<b>❌ Only Admins Can Manage VC Logger.</b>",
                 parse_mode=enums.ParseMode.HTML,
             )
 
         if len(message.command) < 2:
-            status = chat_id not in VC_DISABLED_CHATS
+            status = await is_vclogger_on(chat_id)
 
-            return await _safe_command_reply(message, 
+            return await message.reply_text(
                 "<b><blockquote>"
                 "🎧 VC LOGGER SETTINGS\n\n"
                 f"Status : {'ENABLED ✅' if status else 'DISABLED ❌'}\n\n"
@@ -107,10 +83,9 @@ async def vclogger_command(client, message):
         action = message.command[1].lower()
 
         if action in ("on", "enable"):
-            VC_DISABLED_CHATS.discard(chat_id)
             await vclogger_on(chat_id)
 
-            return await _safe_command_reply(message, 
+            return await message.reply_text(
                 "<b><blockquote>"
                 "✅ VC LOGGER ENABLED\n\n"
                 "Voice Chat Join/Leave Logging Is Now Active."
@@ -119,10 +94,9 @@ async def vclogger_command(client, message):
             )
 
         elif action in ("off", "disable"):
-            VC_DISABLED_CHATS.add(chat_id)
             await vclogger_off(chat_id)
 
-            return await _safe_command_reply(message, 
+            return await message.reply_text(
                 "<b><blockquote>"
                 "❌ VC LOGGER DISABLED\n\n"
                 "Voice Chat Join/Leave Logging Is Now Stopped."
@@ -130,7 +104,7 @@ async def vclogger_command(client, message):
                 parse_mode=enums.ParseMode.HTML,
             )
 
-        return await _safe_command_reply(message, 
+        return await message.reply_text(
             "<b>Usage: /vclogger on | off</b>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -273,8 +247,9 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
         if not user_id:
             return
 
-        # Enabled by default in every group; only /vclogger off disables it.
-        if chat_id in VC_DISABLED_CHATS:
+        # Check VC logger status
+
+        if not await is_vclogger_on(chat_id):
             return
 
         event_key = (chat_id, user_id, event_type)
@@ -296,26 +271,19 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
         async with lock:
 
-            # Re-check duplicates INSIDE the lock.
-            # All five assistants can receive the same VC update at nearly
-            # the same time; checking only before the lock allows duplicates.
+            # Prevent duplicate events
+
             now = time.monotonic()
-            last_event = VC_EVENT_CACHE.get(event_key)
 
             if (
-                last_event is not None
-                and now - last_event < VC_DUPLICATE_DELAY
+                now - VC_EVENT_CACHE.get(event_key, 0)
+                < VC_DUPLICATE_DELAY
             ):
-                LOG.debug(
-                    "[VC Logger] Duplicate event ignored: chat=%s user=%s event=%s",
-                    chat_id,
-                    user_id,
-                    event_type,
-                )
                 return
 
-            # Re-check disable flag after waiting for the chat lock.
-            if chat_id in VC_DISABLED_CHATS:
+            # Check logger status again
+
+            if not await is_vclogger_on(chat_id):
                 return
 
             LOG.info(
@@ -369,8 +337,9 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
                 while True:
 
-                    # Re-check disable flag before every send attempt.
-                    if chat_id in VC_DISABLED_CHATS:
+                    # Check logger status before every attempt
+
+                    if not await is_vclogger_on(chat_id):
                         return
 
                     # Wait for previous FloodWait
@@ -490,7 +459,7 @@ def register_vclogger(call):
         VC_REGISTERED.add(assistant_id)
         registered_count += 1
 
-    LOG.warning(
+    LOG.debug(
         "[VC Logger] Participant handlers registered. New assistants: %s",
         registered_count,
     )
