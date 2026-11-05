@@ -16,7 +16,6 @@ from pytgcalls.types import (
 
 from BrandrdXMusic import app
 from BrandrdXMusic.utils.database import (
-    is_vclogger_on,
     vclogger_on,
     vclogger_off,
 )
@@ -31,6 +30,9 @@ LOG.setLevel(logging.WARNING)
 VC_EVENT_CACHE = {}
 VC_CHAT_LOCKS = {}
 VC_REGISTERED = set()
+
+# Enabled by default in every group; /vclogger off disables locally.
+VC_DISABLED_CHATS = set()
 
 VC_FLOOD_UNTIL = 0
 
@@ -90,7 +92,7 @@ async def vclogger_command(client, message):
             )
 
         if len(message.command) < 2:
-            status = await is_vclogger_on(chat_id)
+            status = chat_id not in VC_DISABLED_CHATS
 
             return await _safe_command_reply(message, 
                 "<b><blockquote>"
@@ -105,6 +107,7 @@ async def vclogger_command(client, message):
         action = message.command[1].lower()
 
         if action in ("on", "enable"):
+            VC_DISABLED_CHATS.discard(chat_id)
             await vclogger_on(chat_id)
 
             return await _safe_command_reply(message, 
@@ -116,6 +119,7 @@ async def vclogger_command(client, message):
             )
 
         elif action in ("off", "disable"):
+            VC_DISABLED_CHATS.add(chat_id)
             await vclogger_off(chat_id)
 
             return await _safe_command_reply(message, 
@@ -269,9 +273,8 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
         if not user_id:
             return
 
-        # Check VC logger status
-
-        if not await is_vclogger_on(chat_id):
+        # Enabled by default in every group; only /vclogger off disables it.
+        if chat_id in VC_DISABLED_CHATS:
             return
 
         event_key = (chat_id, user_id, event_type)
@@ -311,9 +314,8 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
                 )
                 return
 
-            # Check logger status again
-
-            if not await is_vclogger_on(chat_id):
+            # Re-check disable flag after waiting for the chat lock.
+            if chat_id in VC_DISABLED_CHATS:
                 return
 
             LOG.info(
@@ -367,9 +369,8 @@ async def participants_change_handler(_, update: UpdatedGroupCallParticipant):
 
                 while True:
 
-                    # Check logger status before every attempt
-
-                    if not await is_vclogger_on(chat_id):
+                    # Re-check disable flag before every send attempt.
+                    if chat_id in VC_DISABLED_CHATS:
                         return
 
                     # Wait for previous FloodWait
