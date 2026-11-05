@@ -46,7 +46,7 @@ VC_SEND_LOCK = asyncio.Lock()
 # JOIN VC BUTTON
 # ==============================
 
-async def _vc_join_keyboard(chat_id, client=None):
+keyboard = await _vc_join_keyboard(chat_id, app)
     client = client or app
 
     chat_id_str = str(chat_id)
