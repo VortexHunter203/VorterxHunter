@@ -28,6 +28,33 @@ from BrandrdXMusic.utils.stream.stream import stream
 from config import BANNED_USERS, lyrical
 
 
+# ---------------------------------------------------------
+# Telegram FloodWait-safe message helpers
+# ---------------------------------------------------------
+async def safe_telegram_call(func, *args, retries=2, **kwargs):
+    """
+    Retry Telegram message operations only after Telegram's
+    requested FloodWait period. Never retry indefinitely.
+    """
+    for attempt in range(retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except FloodWait as e:
+            wait_time = int(getattr(e, "value", 1)) + 1
+            LOGGER(__name__).warning(
+                "Telegram FloodWait in %s: waiting %s seconds (attempt %s/%s)",
+                getattr(func, "__name__", "telegram operation"),
+                wait_time,
+                attempt + 1,
+                retries + 1,
+            )
+            if attempt >= retries:
+                raise
+            await asyncio.sleep(wait_time)
+
+
+
+
 @app.on_message(
     filters.command(
         [
@@ -78,7 +105,7 @@ async def _play_flow(
     fplay,
 ):
     try:
-        mystic = await message.reply_text(
+        mystic = await safe_telegram_call(message.reply_text, 
             _["play_2"].format(channel) if channel else _["play_1"]
         )
     except FloodWait as e:
@@ -88,7 +115,7 @@ async def _play_flow(
         )
         await asyncio.sleep(e.value + 1)
         try:
-            mystic = await message.reply_text(
+            mystic = await safe_telegram_call(message.reply_text, 
                 _["play_2"].format(channel) if channel else _["play_1"]
             )
         except FloodWait as retry_error:
@@ -118,12 +145,12 @@ async def _play_flow(
 
     if audio_telegram:
         if audio_telegram.file_size > 104857600:
-            return await mystic.edit_text(_["play_5"])
+            return await safe_telegram_call(mystic.edit_text, _["play_5"])
 
         duration_min = seconds_to_min(audio_telegram.duration)
 
         if audio_telegram.duration > config.DURATION_LIMIT:
-            return await mystic.edit_text(
+            return await safe_telegram_call(mystic.edit_text, 
                 _["play_6"].format(config.DURATION_LIMIT_MIN, app.mention)
             )
 
@@ -172,7 +199,7 @@ async def _play_flow(
                     else _["general_2"].format(f"{ex_type}: {e}")
                 )
                 try:
-                    return await mystic.edit_text(err)
+                    return await safe_telegram_call(mystic.edit_text, err)
                 except FloodWait as fw:
                     LOGGER(__name__).warning(
                         "_play_flow: edit_text FloodWait: %s seconds",
@@ -188,7 +215,7 @@ async def _play_flow(
             try:
                 ext = video_telegram.file_name.split(".")[-1]
                 if ext.lower() not in formats:
-                    return await mystic.edit_text(
+                    return await safe_telegram_call(mystic.edit_text, 
                         _["play_7"].format(f"{' | '.join(formats)}")
                     )
             except Exception:
@@ -196,12 +223,12 @@ async def _play_flow(
                     "_play_flow: document format check failed",
                     exc_info=True,
                 )
-                return await mystic.edit_text(
+                return await safe_telegram_call(mystic.edit_text, 
                     _["play_7"].format(f"{' | '.join(formats)}")
                 )
 
         if video_telegram.file_size > config.TG_VIDEO_FILESIZE_LIMIT:
-            return await mystic.edit_text(_["play_8"])
+            return await safe_telegram_call(mystic.edit_text, _["play_8"])
 
         file_path = await Telegram.get_filepath(video=video_telegram)
 
@@ -249,7 +276,7 @@ async def _play_flow(
                     else _["general_2"].format(f"{ex_type}: {e}")
                 )
                 try:
-                    return await mystic.edit_text(err)
+                    return await safe_telegram_call(mystic.edit_text, err)
                 except FloodWait as fw:
                     LOGGER(__name__).warning(
                         "_play_flow: edit_text FloodWait: %s seconds",
@@ -274,7 +301,7 @@ async def _play_flow(
                         "_play_flow: YouTube playlist failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "playlist"
                 plist_type = "yt"
@@ -295,7 +322,7 @@ async def _play_flow(
                         "_play_flow: YouTube track failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -311,7 +338,7 @@ async def _play_flow(
                 not config.SPOTIFY_CLIENT_ID
                 and not config.SPOTIFY_CLIENT_SECRET
             ):
-                return await mystic.edit_text(
+                return await safe_telegram_call(mystic.edit_text, 
                     "» sᴘᴏᴛɪғʏ ɪs ɴᴏᴛ sᴜᴘᴘᴏʀᴛᴇᴅ ʏᴇᴛ.\n\n"
                     "ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ."
                 )
@@ -324,7 +351,7 @@ async def _play_flow(
                         "_play_flow: Spotify track failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -341,7 +368,7 @@ async def _play_flow(
                         "_play_flow: Spotify playlist failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "playlist"
                 plist_type = "spplay"
@@ -359,7 +386,7 @@ async def _play_flow(
                         "_play_flow: Spotify album failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "playlist"
                 plist_type = "spalbum"
@@ -377,7 +404,7 @@ async def _play_flow(
                         "_play_flow: Spotify artist failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "playlist"
                 plist_type = "spartist"
@@ -385,7 +412,7 @@ async def _play_flow(
                 cap = _["play_11"].format(message.from_user.first_name)
 
             else:
-                return await mystic.edit_text(_["play_15"])
+                return await safe_telegram_call(mystic.edit_text, _["play_15"])
 
         elif await Apple.valid(url):
             if "album" in url:
@@ -396,7 +423,7 @@ async def _play_flow(
                         "_play_flow: Apple track failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -415,7 +442,7 @@ async def _play_flow(
                         "_play_flow: Apple playlist failed",
                         exc_info=True,
                     )
-                    return await mystic.edit_text(_["play_3"])
+                    return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
                 streamtype = "playlist"
                 plist_type = "apple"
@@ -426,7 +453,7 @@ async def _play_flow(
                 img = url
 
             else:
-                return await mystic.edit_text(_["play_3"])
+                return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
         elif await Resso.valid(url):
             try:
@@ -436,7 +463,7 @@ async def _play_flow(
                     "_play_flow: Resso track failed",
                     exc_info=True,
                 )
-                return await mystic.edit_text(_["play_3"])
+                return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
             streamtype = "youtube"
             img = details["thumb"]
@@ -453,12 +480,12 @@ async def _play_flow(
                     "_play_flow: SoundCloud download failed",
                     exc_info=True,
                 )
-                return await mystic.edit_text(_["play_3"])
+                return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
             duration_sec = details["duration_sec"]
 
             if duration_sec > config.DURATION_LIMIT:
-                return await mystic.edit_text(
+                return await safe_telegram_call(mystic.edit_text, 
                     _["play_6"].format(
                         config.DURATION_LIMIT_MIN,
                         app.mention,
@@ -496,7 +523,7 @@ async def _play_flow(
                     else _["general_2"].format(f"{ex_type}: {e}")
                 )
                 try:
-                    return await mystic.edit_text(err)
+                    return await safe_telegram_call(mystic.edit_text, err)
                 except FloodWait as fw:
                     LOGGER(__name__).warning(
                         "_play_flow: edit_text FloodWait: %s seconds",
@@ -514,8 +541,8 @@ async def _play_flow(
                     "_play_flow: no active group call",
                     exc_info=True,
                 )
-                await mystic.edit_text(_["black_9"])
-                return await app.send_message(
+                await safe_telegram_call(mystic.edit_text, _["black_9"])
+                return await safe_telegram_call(app.send_message, 
                     chat_id=config.LOGGER_ID,
                     text=_["play_17"],
                 )
@@ -524,11 +551,11 @@ async def _play_flow(
                     "_play_flow: stream_call failed",
                     exc_info=True,
                 )
-                return await mystic.edit_text(
+                return await safe_telegram_call(mystic.edit_text, 
                     _["general_2"].format(f"{type(e).__name__}: {e}")
                 )
 
-            await mystic.edit_text(_["str_2"])
+            await safe_telegram_call(mystic.edit_text, _["str_2"])
 
             try:
                 await stream(
@@ -562,7 +589,7 @@ async def _play_flow(
                     else _["general_2"].format(f"{ex_type}: {e}")
                 )
                 try:
-                    return await mystic.edit_text(err)
+                    return await safe_telegram_call(mystic.edit_text, err)
                 except FloodWait as fw:
                     LOGGER(__name__).warning(
                         "_play_flow: edit_text FloodWait: %s seconds",
@@ -578,7 +605,7 @@ async def _play_flow(
     else:
         if len(message.command) < 2:
             buttons = botplaylist_markup(_)
-            return await mystic.edit_text(
+            return await safe_telegram_call(mystic.edit_text, 
                 _["play_18"],
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
@@ -596,7 +623,7 @@ async def _play_flow(
                 "_play_flow: YouTube search failed",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
         streamtype = "youtube"
 
@@ -606,7 +633,7 @@ async def _play_flow(
                 duration_sec = time_to_seconds(details["duration_min"])
 
                 if duration_sec > config.DURATION_LIMIT:
-                    return await mystic.edit_text(
+                    return await safe_telegram_call(mystic.edit_text, 
                         _["play_6"].format(
                             config.DURATION_LIMIT_MIN,
                             app.mention,
@@ -622,7 +649,7 @@ async def _play_flow(
                     "c" if channel else "g",
                     "f" if fplay else "d",
                 )
-                return await mystic.edit_text(
+                return await safe_telegram_call(mystic.edit_text, 
                     _["play_13"],
                     reply_markup=InlineKeyboardMarkup(buttons),
                 )
@@ -661,7 +688,7 @@ async def _play_flow(
             )
 
             try:
-                return await mystic.edit_text(err)
+                return await safe_telegram_call(mystic.edit_text, err)
             except FloodWait as fw:
                 LOGGER(__name__).warning(
                     "_play_flow: edit_text FloodWait: %s seconds",
@@ -690,8 +717,8 @@ async def _play_flow(
                 "f" if fplay else "d",
             )
 
-            await mystic.delete()
-            await message.reply_photo(
+            await safe_telegram_call(mystic.delete)
+            await safe_telegram_call(message.reply_photo, 
                 photo=img,
                 caption=cap,
                 reply_markup=InlineKeyboardMarkup(buttons),
@@ -713,8 +740,8 @@ async def _play_flow(
                     "f" if fplay else "d",
                 )
 
-                await mystic.delete()
-                await message.reply_photo(
+                await safe_telegram_call(mystic.delete)
+                await safe_telegram_call(message.reply_photo, 
                     photo=details["thumb"],
                     caption=_["play_10"].format(
                         details["title"].title(),
@@ -736,8 +763,8 @@ async def _play_flow(
                     "f" if fplay else "d",
                 )
 
-                await mystic.delete()
-                await message.reply_photo(
+                await safe_telegram_call(mystic.delete)
+                await safe_telegram_call(message.reply_photo, 
                     photo=img,
                     caption=cap,
                     reply_markup=InlineKeyboardMarkup(buttons),
@@ -780,7 +807,7 @@ async def play_music(client, CallbackQuery, _):
     user_name = CallbackQuery.from_user.first_name
 
     try:
-        await CallbackQuery.message.delete()
+        await safe_telegram_call(CallbackQuery.message.delete)
         await CallbackQuery.answer()
     except Exception:
         LOGGER(__name__).warning(
@@ -798,7 +825,7 @@ async def _play_music_flow(
     _, CallbackQuery, vidid, mode, cplay, fplay, chat_id, channel, user_name
 ):
     try:
-        mystic = await CallbackQuery.message.reply_text(
+        mystic = await safe_telegram_call(CallbackQuery.message.reply_text, 
             _["play_2"].format(channel) if channel else _["play_1"]
         )
     except FloodWait as e:
@@ -816,13 +843,13 @@ async def _play_music_flow(
             "_play_music_flow: unhandled exception",
             exc_info=True,
         )
-        return await mystic.edit_text(_["play_3"])
+        return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     if details["duration_min"]:
         duration_sec = time_to_seconds(details["duration_min"])
 
         if duration_sec > config.DURATION_LIMIT:
-            return await mystic.edit_text(
+            return await safe_telegram_call(mystic.edit_text, 
                 _["play_6"].format(
                     config.DURATION_LIMIT_MIN,
                     app.mention,
@@ -838,7 +865,7 @@ async def _play_music_flow(
             "c" if cplay == "c" else "g",
             "f" if fplay == "f" else "d",
         )
-        return await mystic.edit_text(
+        return await safe_telegram_call(mystic.edit_text, 
             _["play_13"],
             reply_markup=InlineKeyboardMarkup(buttons),
         )
@@ -879,7 +906,7 @@ async def _play_music_flow(
         )
 
         try:
-            return await mystic.edit_text(err)
+            return await safe_telegram_call(mystic.edit_text, err)
         except FloodWait as fw:
             LOGGER(__name__).warning(
                 "_play_music_flow: edit_text FloodWait: %s seconds",
@@ -947,7 +974,7 @@ async def play_playlists_command(client, CallbackQuery, _):
 
     user_name = CallbackQuery.from_user.first_name
 
-    await CallbackQuery.message.delete()
+    await safe_telegram_call(CallbackQuery.message.delete)
 
     try:
         await CallbackQuery.answer()
@@ -957,7 +984,7 @@ async def play_playlists_command(client, CallbackQuery, _):
             exc_info=True,
         )
 
-    mystic = await CallbackQuery.message.reply_text(
+    mystic = await safe_telegram_call(CallbackQuery.message.reply_text, 
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
@@ -980,7 +1007,7 @@ async def play_playlists_command(client, CallbackQuery, _):
                 "play_playlists_command: unhandled exception",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     elif ptype == "spplay":
         try:
@@ -990,7 +1017,7 @@ async def play_playlists_command(client, CallbackQuery, _):
                 "play_playlists_command: unhandled exception",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     elif ptype == "spalbum":
         try:
@@ -1000,7 +1027,7 @@ async def play_playlists_command(client, CallbackQuery, _):
                 "play_playlists_command: unhandled exception",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     elif ptype == "spartist":
         try:
@@ -1010,7 +1037,7 @@ async def play_playlists_command(client, CallbackQuery, _):
                 "play_playlists_command: unhandled exception",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     elif ptype == "apple":
         try:
@@ -1020,7 +1047,7 @@ async def play_playlists_command(client, CallbackQuery, _):
                 "play_playlists_command: unhandled exception",
                 exc_info=True,
             )
-            return await mystic.edit_text(_["play_3"])
+            return await safe_telegram_call(mystic.edit_text, _["play_3"])
 
     try:
         await stream(
@@ -1056,7 +1083,7 @@ async def play_playlists_command(client, CallbackQuery, _):
         )
 
         try:
-            return await mystic.edit_text(err)
+            return await safe_telegram_call(mystic.edit_text, err)
         except FloodWait as fw:
             LOGGER(__name__).warning(
                 "play_playlists_command: edit_text FloodWait: %s seconds",
@@ -1134,7 +1161,7 @@ async def slider_queries(client, CallbackQuery, _):
         )
 
         try:
-            return await CallbackQuery.edit_message_media(
+            return await safe_telegram_call(CallbackQuery.edit_message_media, 
                 media=med,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
@@ -1182,7 +1209,7 @@ async def slider_queries(client, CallbackQuery, _):
         )
 
         try:
-            return await CallbackQuery.edit_message_media(
+            return await safe_telegram_call(CallbackQuery.edit_message_media, 
                 media=med,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
