@@ -23,7 +23,6 @@ from BrandrdXMusic.utils.database import (
 
 
 LOG = logging.getLogger(__name__)
-LOG.disabled = True
 
 # ==============================
 # VC LOGGER SETTINGS
