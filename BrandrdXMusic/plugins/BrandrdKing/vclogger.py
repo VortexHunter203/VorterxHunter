@@ -320,11 +320,19 @@ async def _vc_send_notification(
 
     # Create Join VC button
 
-    keyboard = await _vc_join_keyboard(
-        chat_id,
-        client,
-    )
+    keyboard = await _vc_join_keyboard(chat_id, client)
 
+    if keyboard is None:
+        LOG.error(
+            "[VC Logger] Join button is None: chat=%s",
+            chat_id,
+        )
+    else:
+        LOG.info(
+            "[VC Logger] Join button created: chat=%s",
+             chat_id,
+        )
+        
     async with VC_SEND_LOCK:
 
         if not await is_vclogger_on(chat_id):
