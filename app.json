@@ -59,7 +59,7 @@
     },
     "API_URL": {
       "description": "Primary YouTube Stream API URL",
-      "value": "https://api.shrutibots.in",
+      "value": "",
       "required": true
     }
     "API_KEY": {
