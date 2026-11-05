@@ -1009,16 +1009,26 @@ async def autoplay_off(chat_id: int):
     )
     autoplay[chat_id] = False
 
+# =========================================================
 # VC LOGGER DATABASE
+# =========================================================
 
-async def is_vclogger_on(chat_id: int):
+async def is_vclogger_on(chat_id: int) -> bool:
     collection = mongodb.vclogger
+
     data = await collection.find_one({"chat_id": chat_id})
-    return bool(data and data.get("enabled", False))
+
+    # All groups are ENABLED by default.
+    # Only groups explicitly disabled remain OFF.
+    if data is None:
+        return True
+
+    return bool(data.get("enabled", True))
 
 
 async def vclogger_on(chat_id: int):
     collection = mongodb.vclogger
+
     await collection.update_one(
         {"chat_id": chat_id},
         {"$set": {"enabled": True}},
@@ -1028,6 +1038,7 @@ async def vclogger_on(chat_id: int):
 
 async def vclogger_off(chat_id: int):
     collection = mongodb.vclogger
+
     await collection.update_one(
         {"chat_id": chat_id},
         {"$set": {"enabled": False}},
