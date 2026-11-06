@@ -13,6 +13,7 @@ from BrandrdXMusic.logging import LOGGER
 from BrandrdXMusic.utils import seconds_to_min, time_to_seconds
 from BrandrdXMusic.plugins.BrandrdKing.admin_request import check_admin_and_request
 from BrandrdXMusic.utils.channelplay import get_channeplayCB
+from BrandrdXMusic.utils.thumbnails import get_player_thumb
 from BrandrdXMusic.utils.decorators.language import languageCB
 from BrandrdXMusic.utils.decorators.play import PlayWrapper
 from BrandrdXMusic.utils.formatters import formats
@@ -26,6 +27,17 @@ from BrandrdXMusic.utils.inline import (
 from BrandrdXMusic.utils.logger import play_logs
 from BrandrdXMusic.utils.stream.stream import stream
 from config import BANNED_USERS, lyrical
+
+
+# ==============================
+# PROCESSING MESSAGE AUTO DELETE
+# ==============================
+
+async def _delete_processing(mystic):
+    try:
+        await mystic.delete()
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------
@@ -180,6 +192,8 @@ async def _play_flow(
                     streamtype="telegram",
                     forceplay=fplay,
                 )
+                await _delete_processing(mystic)
+                
             except FloodWait as e:
                 LOGGER(__name__).warning(
                     "_play_flow: Telegram audio FloodWait: %s seconds",
@@ -257,6 +271,8 @@ async def _play_flow(
                     streamtype="telegram",
                     forceplay=fplay,
                 )
+                await _delete_processing(mystic)
+                
             except FloodWait as e:
                 LOGGER(__name__).warning(
                     "_play_flow: Telegram video FloodWait: %s seconds",
@@ -570,6 +586,8 @@ async def _play_flow(
                     streamtype="index",
                     forceplay=fplay,
                 )
+                await _delete_processing(mystic)
+                
             except FloodWait as e:
                 LOGGER(__name__).warning(
                     "_play_flow: index stream FloodWait: %s seconds",
@@ -668,6 +686,8 @@ async def _play_flow(
                 spotify=spotify,
                 forceplay=fplay,
             )
+            await _delete_processing(mystic)
+            
         except FloodWait as e:
             LOGGER(__name__).warning(
                 "_play_flow: FloodWait, waiting %s seconds",
@@ -886,6 +906,9 @@ async def _play_music_flow(
             streamtype="youtube",
             forceplay=ffplay,
         )
+        await _delete_processing(mystic)
+
+    
     except FloodWait as e:
         LOGGER(__name__).warning(
             "_play_music_flow: FloodWait: %s seconds",
@@ -1063,6 +1086,7 @@ async def play_playlists_command(client, CallbackQuery, _):
             spotify=spotify,
             forceplay=ffplay,
         )
+        await _delete_processing(mystic)
     except FloodWait as e:
         LOGGER(__name__).warning(
             "play_playlists_command: FloodWait: %s seconds",
