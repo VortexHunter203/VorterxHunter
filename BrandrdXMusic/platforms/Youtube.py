@@ -87,59 +87,89 @@ async def get_autoplay(
     video_id = extract_video_id(video_id)
 
     if not video_id or not API_URL:
+        LOGGER(__name__).warning(
+            "Autoplay skipped: invalid video ID or missing API_URL"
+        )
         return []
 
     params = {"video_id": video_id}
 
     if seed_id and seed_id != video_id:
-        params["seed_id"] = extract_video_id(seed_id) or seed_id
+        params["seed_id"] = (
+            extract_video_id(seed_id) or seed_id
+        )
 
-    for attempt in range(retries):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{API_URL}/autoplay",
-                    params=params,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as resp:
+    try:
+        async with aiohttp.ClientSession() as session:
 
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return data.get("tracks", [])
+            for attempt in range(retries):
+                try:
+                    async with session.get(
+                        f"{API_URL}/autoplay",
+                        params=params,
+                        timeout=aiohttp.ClientTimeout(total=timeout),
+                    ) as resp:
 
+                        if resp.status == 200:
+                            data = await resp.json()
+
+                            if isinstance(data, dict):
+                                tracks = data.get("tracks", [])
+
+                                if isinstance(tracks, list):
+                                    return tracks
+
+                            LOGGER(__name__).warning(
+                                "Autoplay API returned invalid JSON structure"
+                            )
+                            return []
+
+                        if resp.status == 404:
+                            LOGGER(__name__).error(
+                                "Autoplay endpoint not found: %s/autoplay",
+                                API_URL,
+                            )
+                            return []
+
+                        LOGGER(__name__).warning(
+                            "Autoplay API HTTP %s",
+                            resp.status,
+                        )
+
+                        if (
+                            resp.status in AUTOPLAY_RETRYABLE_STATUS
+                            and attempt + 1 < retries
+                        ):
+                            await asyncio.sleep(
+                                AUTOPLAY_RETRY_DELAY
+                            )
+                            continue
+
+                        return []
+
+                except asyncio.TimeoutError:
                     LOGGER(__name__).warning(
-                        "Autoplay API returned HTTP %s",
-                        resp.status,
+                        "Autoplay request timeout (%s/%s)",
+                        attempt + 1,
+                        retries,
                     )
 
-                    if (
-                        resp.status in AUTOPLAY_RETRYABLE_STATUS
-                        and attempt + 1 < retries
-                    ):
-                        await asyncio.sleep(AUTOPLAY_RETRY_DELAY)
-                        continue
+                except aiohttp.ClientError:
+                    LOGGER(__name__).warning(
+                        "Autoplay connection error",
+                        exc_info=True,
+                    )
 
-                    return []
+                if attempt + 1 < retries:
+                    await asyncio.sleep(
+                        AUTOPLAY_RETRY_DELAY
+                    )
 
-        except (asyncio.TimeoutError, aiohttp.ClientError):
-            LOGGER(__name__).warning(
-                "Autoplay request failed, attempt %s/%s",
-                attempt + 1,
-                retries,
-            )
-
-            if attempt + 1 < retries:
-                await asyncio.sleep(AUTOPLAY_RETRY_DELAY)
-                continue
-
-            return []
-
-        except Exception:
-            LOGGER(__name__).error(
-                "Autoplay error",
-                exc_info=True,
-            )
-            return []
+    except Exception:
+        LOGGER(__name__).error(
+            "Autoplay session failed",
+            exc_info=True,
+        )
 
     return []
 
