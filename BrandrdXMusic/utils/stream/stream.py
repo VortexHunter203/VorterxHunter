@@ -24,6 +24,7 @@ from BrandrdXMusic.utils import seconds_to_min, time_to_seconds
 from BrandrdXMusic.utils.channelplay import get_channeplayCB
 from BrandrdXMusic.utils.decorators.language import languageCB
 from BrandrdXMusic.utils.decorators.play import PlayWrapper
+from BrandrdXMusic.utils.thumbnails import get_player_thumb
 from BrandrdXMusic.utils.formatters import formats
 from BrandrdXMusic.utils.database import (
     add_served_chat,
@@ -192,7 +193,13 @@ async def stream(
                     forceplay=forceplay,
                 )
 
-                img = await get_thumb(vidid)
+                img = await get_player_thumb(
+                    vidid,
+                    title,
+                    duration_min,
+                    artist="BRANDRDXMUSIC",
+                )
+
                 button = stream_markup(_, vidid, chat_id)
 
                 run = await app.send_photo(
@@ -205,6 +212,7 @@ async def stream(
                         user_name,
                     ),
                     reply_markup=InlineKeyboardMarkup(button),
+                    has_spoiler=True,
                 )
 
                 db[chat_id][0]["mystic"] = run
@@ -292,7 +300,14 @@ async def stream(
                 "video" if video else "audio",
             )
 
-            img = await get_thumb(vidid)
+            # CUSTOM PLAYER THUMBNAIL FOR QUEUE
+            img = await get_player_thumb(
+                vidid,
+                title,
+                duration_min,
+                artist="BRANDED MUSIC",
+            )
+
             position = len(db.get(chat_id)) - 1
             button = aq_markup(_, chat_id)
 
@@ -307,6 +322,7 @@ async def stream(
                         user_name,
                     ),
                     reply_markup=InlineKeyboardMarkup(button),
+                    has_spoiler=True,
                 )
             except FloodWait as e:
                 LOGGER(__name__).warning(
@@ -326,6 +342,7 @@ async def stream(
                             user_name,
                         ),
                         reply_markup=InlineKeyboardMarkup(button),
+                        has_spoiler=True,
                     )
                 except FloodWait as retry_error:
                     LOGGER(__name__).warning(
@@ -368,7 +385,13 @@ async def stream(
                 forceplay=forceplay,
             )
 
-            img = await get_thumb(vidid)
+            img = await get_player_thumb(
+                vidid,
+                title,
+                duration_min,
+                artist="BRANDED MUSIC",
+            )
+
             button = stream_markup(_, vidid, chat_id)
 
             run = await app.send_photo(
@@ -381,6 +404,7 @@ async def stream(
                     user_name,
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
+                has_spoiler=True,
             )
 
             db[chat_id][0]["mystic"] = run
@@ -641,6 +665,7 @@ async def stream(
                     user_name,
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
+                has_spoiler=True,
             )
 
             db[chat_id][0]["mystic"] = run
